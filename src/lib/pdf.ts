@@ -104,13 +104,13 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
     doc.text(`Driver: ${input.driver || ""}`, marginL, y); y += 14;
   } else {
     doc.text("QUOTATION REQUEST", marginL, y); y += lineGap;
-    doc.text(`Unit Requested: ${input.unit}`, marginL, y); y += 24;
+    doc.text(`Requestor: ${input.requestor || ""}`, marginL, y); y += 24;
   }
 
   const tableStartY = y;
   const isQuote = input.docType === "quotation";
   const head = isQuote
-    ? [["DATE", "DESTINATION", "PASSENGER", "AMOUNT", "Requestor"]]
+    ? [["DATE", "DESTINATION", "PASSENGER", "AMOUNT", "UNIT"]]
     : [["DATE", "DESTINATION", "PASSENGER", "AMOUNT"]];
 
   const body = input.items.map((it) => {
@@ -144,7 +144,7 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
     columnStyles: isQuote
       ? {
           0: { cellWidth: 70 },
-          1: { cellWidth: 170, halign: "center" },
+          1: { cellWidth: 167, halign: "center" },
           2: { cellWidth: 80 },
           3: { cellWidth: 85 },
           4: { cellWidth: 70 },
@@ -156,21 +156,13 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
           3: { cellWidth: 95 },
         },
     didParseCell: (data) => {
-      // Merge Requestor column vertically for quotations by only showing text on first body row
+      // Merge Unit column vertically for quotations by only showing text on first body row
       if (isQuote && data.section === "body" && data.column.index === 4) {
         if (data.row.index === 0) {
-          data.cell.text = [input.requestor || ""];
+          data.cell.text = [input.unit];
           data.cell.styles.valign = "middle";
         } else {
           data.cell.text = [""];
-        }
-      }
-    },
-    willDrawCell: (data) => {
-      // Remove internal horizontal borders in Requestor column to visually merge
-      if (isQuote && data.section === "body" && data.column.index === 4) {
-        if (data.row.index !== 0) {
-          // draw white line over top border after cell draws
         }
       }
     },
