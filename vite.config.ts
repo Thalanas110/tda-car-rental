@@ -2,7 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
@@ -18,6 +18,7 @@ export default defineConfig({
   ],
   test: {
     environment: "jsdom",
+    exclude: [...configDefaults.exclude, "**/.worktrees/**"],
     setupFiles: "./src/test/setup.ts",
   },
 });
