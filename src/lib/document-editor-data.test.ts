@@ -37,4 +37,11 @@ describe("toEditorInitial", () => {
   it("returns null when stored line items are malformed", () => {
     expect(toEditorInitial({ ...row, items_json: "not-json" })).toBeNull();
   });
+
+  it.each(["[null]", '[{"amount":"bad"}]'])(
+    "returns null for invalid item arrays: %s",
+    (itemsJson) => {
+      expect(toEditorInitial({ ...row, items_json: itemsJson })).toBeNull();
+    },
+  );
 });

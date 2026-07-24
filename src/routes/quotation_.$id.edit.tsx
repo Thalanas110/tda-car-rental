@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DocumentEditorPage } from "@/components/DocumentEditorPage";
 
-export const Route = createFileRoute("/quotation/$id/edit")({
+export const Route = createFileRoute("/quotation_/$id/edit")({
   component: QuotationEditPage,
 });
 
