@@ -17,6 +17,7 @@ function isItem(value: unknown): value is Item {
     typeof item.date === "string" &&
     typeof item.destination === "string" &&
     typeof item.passenger === "string" &&
+    (item.unit === undefined || typeof item.unit === "string") &&
     typeof item.amount === "number" &&
     Number.isFinite(item.amount)
   );
@@ -34,6 +35,9 @@ function parseItems(itemsJson: string): Item[] | null {
 export function toEditorInitial(doc: DocRow): EditorInitial | null {
   const items = parseItems(doc.items_json);
   if (!items) return null;
+  const normalizedItems = doc.doc_type === "quotation"
+    ? items.map((item) => ({ ...item, unit: item.unit ?? doc.unit }))
+    : items;
 
   return {
     date: doc.doc_date,
@@ -41,6 +45,6 @@ export function toEditorInitial(doc: DocRow): EditorInitial | null {
     unit: doc.unit,
     driver: doc.driver,
     requestor: doc.requestor,
-    items,
+    items: normalizedItems,
   };
 }

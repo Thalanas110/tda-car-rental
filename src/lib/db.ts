@@ -25,6 +25,7 @@ export interface Item {
   date: string;
   destination: string;
   passenger: string;
+  unit?: string;
   amount: number;
 }
 

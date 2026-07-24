@@ -34,6 +34,23 @@ describe("toEditorInitial", () => {
     });
   });
 
+  it("copies a legacy quotation unit into every line item", () => {
+    const quotation: DocRow = {
+      ...row,
+      doc_type: "quotation",
+      unit: "Toyota HiAce",
+      items_json: JSON.stringify([
+        { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", amount: 1200 },
+        { date: "12-Jun-26", destination: "Subic", passenger: "A. Cruz", amount: 900 },
+      ]),
+    };
+
+    expect(toEditorInitial(quotation)?.items).toEqual([
+      { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", amount: 1200, unit: "Toyota HiAce" },
+      { date: "12-Jun-26", destination: "Subic", passenger: "A. Cruz", amount: 900, unit: "Toyota HiAce" },
+    ]);
+  });
+
   it("returns null when stored line items are malformed", () => {
     expect(toEditorInitial({ ...row, items_json: "not-json" })).toBeNull();
   });
