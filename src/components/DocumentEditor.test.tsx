@@ -71,4 +71,57 @@ describe("DocumentEditor", () => {
       expect(previewWindow.location.href).toBe("blob:preview");
     });
   });
+
+  it("synchronizes quotation passengers and units from the first row", () => {
+    render(
+      <DocumentEditor
+        docType="quotation"
+        initial={{
+          date: "14 June 2026",
+          requestor: "Path Foundation",
+          items: [
+            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
+            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Mitsubishi L300", amount: 900 },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Same passenger?" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Same unit?" }));
+    fireEvent.change(screen.getByLabelText("Passenger 1"), { target: { value: "C. Santos" } });
+    fireEvent.change(screen.getByLabelText("Unit 1"), { target: { value: "Toyota Commuter" } });
+    fireEvent.click(screen.getByRole("button", { name: /add row/i }));
+
+    expect(screen.getByLabelText("Passenger 2")).toHaveValue("C. Santos");
+    expect(screen.getByLabelText("Passenger 2")).toBeDisabled();
+    expect(screen.getByLabelText("Unit 2")).toHaveValue("Toyota Commuter");
+    expect(screen.getByLabelText("Unit 2")).toBeDisabled();
+    expect(screen.getByLabelText("Passenger 3")).toHaveValue("C. Santos");
+    expect(screen.getByLabelText("Unit 3")).toHaveValue("Toyota Commuter");
+  });
+
+  it("saves a multi-unit quotation using its line-item units", async () => {
+    render(
+      <DocumentEditor
+        docType="quotation"
+        initial={{
+          items: [
+            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
+            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Mitsubishi L300", amount: 900 },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(db.saveDoc).toHaveBeenCalledTimes(1));
+    const saved = db.saveDoc.mock.calls[0][0];
+    expect(saved).toMatchObject({ doc_type: "quotation", unit: "Multiple units" });
+    expect(JSON.parse(saved.items_json)).toEqual([
+      expect.objectContaining({ unit: "Toyota HiAce" }),
+      expect.objectContaining({ unit: "Mitsubishi L300" }),
+    ]);
+  });
 });
