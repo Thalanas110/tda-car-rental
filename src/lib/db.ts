@@ -86,10 +86,7 @@ export async function getDoc(id: number): Promise<DocRow | undefined> {
   return doc as unknown as DocRow;
 }
 
-export async function updateDoc(
-  id: number,
-  d: Omit<DocRow, "id" | "created_at">,
-): Promise<void> {
+export async function updateDoc(id: number, d: Omit<DocRow, "id" | "created_at">): Promise<void> {
   const db = await getDb();
   db.run(
     `UPDATE docs

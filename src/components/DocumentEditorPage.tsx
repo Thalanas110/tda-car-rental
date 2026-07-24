@@ -74,7 +74,9 @@ export function DocumentEditorPage({
           </button>
         </div>
 
-        {status === "loading" && <p className="text-sm text-muted-foreground">Loading document...</p>}
+        {status === "loading" && (
+          <p className="text-sm text-muted-foreground">Loading document...</p>
+        )}
 
         {status === "unavailable" && (
           <div className="rounded-md border bg-card p-6">

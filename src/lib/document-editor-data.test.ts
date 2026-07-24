@@ -11,8 +11,7 @@ const row: DocRow = {
   driver: "Teddy Dimate",
   requestor: "",
   total: 1200,
-  items_json:
-    '[{"date":"11-Jun-26","destination":"Makati","passenger":"A. Cruz","amount":1200}]',
+  items_json: '[{"date":"11-Jun-26","destination":"Makati","passenger":"A. Cruz","amount":1200}]',
   created_at: "2026-06-14 08:00:00",
 };
 
