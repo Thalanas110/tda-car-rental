@@ -12,6 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as QuotationRouteImport } from './routes/quotation'
+import { Route as BillingNewRouteImport } from './routes/billing.new'
+import { Route as QuotationNewRouteImport } from './routes/quotation.new'
+import { Route as BillingIdEditRouteImport } from './routes/billing.$id.edit'
+import { Route as QuotationIdEditRouteImport } from './routes/quotation.$id.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +32,89 @@ const QuotationRoute = QuotationRouteImport.update({
   path: '/quotation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BillingNewRoute = BillingNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => BillingRoute,
+} as any)
+const QuotationNewRoute = QuotationNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => QuotationRoute,
+} as any)
+const BillingIdEditRoute = BillingIdEditRouteImport.update({
+  id: '/$id/edit',
+  path: '/$id/edit',
+  getParentRoute: () => BillingRoute,
+} as any)
+const QuotationIdEditRoute = QuotationIdEditRouteImport.update({
+  id: '/$id/edit',
+  path: '/$id/edit',
+  getParentRoute: () => QuotationRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/billing': typeof BillingRoute
-  '/quotation': typeof QuotationRoute
+  '/billing': typeof BillingRouteWithChildren
+  '/quotation': typeof QuotationRouteWithChildren
+  '/billing/new': typeof BillingNewRoute
+  '/quotation/new': typeof QuotationNewRoute
+  '/billing/$id/edit': typeof BillingIdEditRoute
+  '/quotation/$id/edit': typeof QuotationIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/billing': typeof BillingRoute
-  '/quotation': typeof QuotationRoute
+  '/billing': typeof BillingRouteWithChildren
+  '/quotation': typeof QuotationRouteWithChildren
+  '/billing/new': typeof BillingNewRoute
+  '/quotation/new': typeof QuotationNewRoute
+  '/billing/$id/edit': typeof BillingIdEditRoute
+  '/quotation/$id/edit': typeof QuotationIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/billing': typeof BillingRoute
-  '/quotation': typeof QuotationRoute
+  '/billing': typeof BillingRouteWithChildren
+  '/quotation': typeof QuotationRouteWithChildren
+  '/billing/new': typeof BillingNewRoute
+  '/quotation/new': typeof QuotationNewRoute
+  '/billing/$id/edit': typeof BillingIdEditRoute
+  '/quotation/$id/edit': typeof QuotationIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/billing' | '/quotation'
+  fullPaths:
+    | '/'
+    | '/billing'
+    | '/quotation'
+    | '/billing/new'
+    | '/quotation/new'
+    | '/billing/$id/edit'
+    | '/quotation/$id/edit'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/billing' | '/quotation'
-  id: '__root__' | '/' | '/billing' | '/quotation'
+  to:
+    | '/'
+    | '/billing'
+    | '/quotation'
+    | '/billing/new'
+    | '/quotation/new'
+    | '/billing/$id/edit'
+    | '/quotation/$id/edit'
+  id:
+    | '__root__'
+    | '/'
+    | '/billing'
+    | '/quotation'
+    | '/billing/new'
+    | '/quotation/new'
+    | '/billing/$id/edit'
+    | '/quotation/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BillingRoute: typeof BillingRoute
-  QuotationRoute: typeof QuotationRoute
+  BillingRoute: typeof BillingRouteWithChildren
+  QuotationRoute: typeof QuotationRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -82,13 +140,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof QuotationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/billing/new': {
+      id: '/billing/new'
+      path: '/new'
+      fullPath: '/billing/new'
+      preLoaderRoute: typeof BillingNewRouteImport
+      parentRoute: typeof BillingRoute
+    }
+    '/quotation/new': {
+      id: '/quotation/new'
+      path: '/new'
+      fullPath: '/quotation/new'
+      preLoaderRoute: typeof QuotationNewRouteImport
+      parentRoute: typeof QuotationRoute
+    }
+    '/billing/$id/edit': {
+      id: '/billing/$id/edit'
+      path: '/$id/edit'
+      fullPath: '/billing/$id/edit'
+      preLoaderRoute: typeof BillingIdEditRouteImport
+      parentRoute: typeof BillingRoute
+    }
+    '/quotation/$id/edit': {
+      id: '/quotation/$id/edit'
+      path: '/$id/edit'
+      fullPath: '/quotation/$id/edit'
+      preLoaderRoute: typeof QuotationIdEditRouteImport
+      parentRoute: typeof QuotationRoute
+    }
   }
 }
 
+interface BillingRouteChildren {
+  BillingNewRoute: typeof BillingNewRoute
+  BillingIdEditRoute: typeof BillingIdEditRoute
+}
+
+const BillingRouteChildren: BillingRouteChildren = {
+  BillingNewRoute: BillingNewRoute,
+  BillingIdEditRoute: BillingIdEditRoute,
+}
+
+const BillingRouteWithChildren =
+  BillingRoute._addFileChildren(BillingRouteChildren)
+
+interface QuotationRouteChildren {
+  QuotationNewRoute: typeof QuotationNewRoute
+  QuotationIdEditRoute: typeof QuotationIdEditRoute
+}
+
+const QuotationRouteChildren: QuotationRouteChildren = {
+  QuotationNewRoute: QuotationNewRoute,
+  QuotationIdEditRoute: QuotationIdEditRoute,
+}
+
+const QuotationRouteWithChildren = QuotationRoute._addFileChildren(
+  QuotationRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BillingRoute: BillingRoute,
-  QuotationRoute: QuotationRoute,
+  BillingRoute: BillingRouteWithChildren,
+  QuotationRoute: QuotationRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
