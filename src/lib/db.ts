@@ -75,6 +75,28 @@ export async function saveDoc(d: Omit<DocRow, "id" | "created_at">): Promise<num
   return id;
 }
 
+export async function getDoc(id: number): Promise<DocRow | undefined> {
+  const db = await getDb();
+  const res = db.exec("SELECT * FROM docs WHERE id = ? LIMIT 1", [id]);
+  if (!res.length || !res[0].values.length) return undefined;
+
+  const [values] = res[0].values;
+  const doc: Record<string, unknown> = {};
+  res[0].columns.forEach((column, index) => (doc[column] = values[index]));
+  return doc as unknown as DocRow;
+}
+
+export async function updateDoc(id: number, d: Omit<DocRow, "id" | "created_at">): Promise<void> {
+  const db = await getDb();
+  db.run(
+    `UPDATE docs
+     SET doc_type = ?, doc_date = ?, billed_to = ?, unit = ?, driver = ?, requestor = ?, total = ?, items_json = ?
+     WHERE id = ?`,
+    [d.doc_type, d.doc_date, d.billed_to, d.unit, d.driver, d.requestor, d.total, d.items_json, id],
+  );
+  await persist();
+}
+
 export async function listDocs(): Promise<DocRow[]> {
   const db = await getDb();
   const res = db.exec("SELECT * FROM docs ORDER BY id DESC");

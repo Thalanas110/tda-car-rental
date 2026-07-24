@@ -14,6 +14,7 @@ npm run dev
 ## Quality checks
 
 ```sh
+npm run test
 npm run lint
 npm run build
 ```
