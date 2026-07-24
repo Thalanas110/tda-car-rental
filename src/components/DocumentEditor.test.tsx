@@ -124,4 +124,39 @@ describe("DocumentEditor", () => {
       expect.objectContaining({ unit: "Mitsubishi L300" }),
     ]);
   });
+
+  it("saves a shared quotation unit as the document summary", async () => {
+    render(
+      <DocumentEditor
+        docType="quotation"
+        initial={{
+          items: [
+            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
+            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Toyota HiAce", amount: 900 },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(db.saveDoc).toHaveBeenCalledTimes(1));
+    expect(db.saveDoc.mock.calls[0][0]).toMatchObject({ doc_type: "quotation", unit: "Toyota HiAce" });
+  });
+
+  it("saves blank quotation units with an empty summary", async () => {
+    render(
+      <DocumentEditor
+        docType="quotation"
+        initial={{
+          items: [{ date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "", amount: 1200 }],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(db.saveDoc).toHaveBeenCalledTimes(1));
+    expect(db.saveDoc.mock.calls[0][0]).toMatchObject({ doc_type: "quotation", unit: "" });
+  });
 });

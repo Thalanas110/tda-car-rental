@@ -27,6 +27,7 @@ function synchronizeRows(items: Item[], field: "passenger" | "unit"): Item[] {
 function quotationUnitSummary(items: Item[]): string {
   if (!items.length) return "";
   const firstUnit = items[0].unit || "";
+  if (!items.some((item) => item.unit)) return "";
   return firstUnit && items.every((item) => item.unit === firstUnit) ? firstUnit : "Multiple units";
 }
 

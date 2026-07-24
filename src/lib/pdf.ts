@@ -64,6 +64,11 @@ function loadBillingSignature(): Promise<{ data: string; format: "JPEG" | "PNG" 
 const money = (n: number) =>
   "PHP " + n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+function rowsSharePdfValue(items: Item[], field: "unit" | "passenger"): boolean {
+  const first = items[0]?.[field] || "";
+  return Boolean(first) && items.every((item) => item[field] === first);
+}
+
 export async function generatePdf(input: PdfInput): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -109,21 +114,27 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
 
   const tableStartY = y;
   const isQuote = input.docType === "quotation";
+  const tableItems = isQuote
+    ? input.items.map((item) => ({ ...item, unit: item.unit ?? input.unit }))
+    : input.items;
+  const sharedQuoteUnit = isQuote && rowsSharePdfValue(tableItems, "unit");
+  const sharedQuotePassenger = isQuote && rowsSharePdfValue(tableItems, "passenger");
   const head = isQuote
-    ? [["DATE", "DESTINATION", "PASSENGER", "AMOUNT", "UNIT"]]
+    ? [["DATE", "UNIT", "DESTINATION", "PASSENGER", "AMOUNT"]]
     : [["DATE", "DESTINATION", "PASSENGER", "AMOUNT"]];
 
-  const body = input.items.map((it) => {
-    const base = [it.date, it.destination, it.passenger, money(it.amount)];
-    return isQuote ? [...base, ""] : base;
-  });
+  const body = tableItems.map((item) =>
+    isQuote
+      ? [item.date, item.unit || "", item.destination, item.passenger, money(item.amount)]
+      : [item.date, item.destination, item.passenger, money(item.amount)],
+  );
 
   autoTable(doc, {
     startY: tableStartY,
     head,
     body,
     theme: "grid",
-    margin: { left: marginL, right: marginR },
+    margin: isQuote ? { left: 80, right: 80 } : { left: marginL, right: marginR },
     styles: {
       font: "helvetica",
       fontSize: 10,
@@ -144,10 +155,10 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
     columnStyles: isQuote
       ? {
           0: { cellWidth: 70 },
-          1: { cellWidth: 167, halign: "center" },
-          2: { cellWidth: 80 },
+          1: { cellWidth: 75 },
+          2: { cellWidth: 140, halign: "center" },
           3: { cellWidth: 85 },
-          4: { cellWidth: 70 },
+          4: { cellWidth: 82 },
         }
       : {
           0: { cellWidth: 80 },
@@ -156,10 +167,12 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
           3: { cellWidth: 95 },
         },
     didParseCell: (data) => {
-      // Merge Unit column vertically for quotations by only showing text on first body row
-      if (isQuote && data.section === "body" && data.column.index === 4) {
+      const isSharedQuoteColumn =
+        isQuote &&
+        ((data.column.index === 1 && sharedQuoteUnit) ||
+          (data.column.index === 3 && sharedQuotePassenger));
+      if (isSharedQuoteColumn && data.section === "body") {
         if (data.row.index === 0) {
-          data.cell.text = [input.unit];
           data.cell.styles.valign = "middle";
         } else {
           data.cell.text = [""];
@@ -167,7 +180,11 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
       }
     },
     didDrawCell: (data) => {
-      if (isQuote && data.section === "body" && data.column.index === 4 && data.row.index > 0) {
+      const isSharedQuoteColumn =
+        isQuote &&
+        ((data.column.index === 1 && sharedQuoteUnit) ||
+          (data.column.index === 3 && sharedQuotePassenger));
+      if (isSharedQuoteColumn && data.section === "body" && data.row.index > 0) {
         const { x, y, width } = data.cell;
         doc.setDrawColor(255, 255, 255);
         doc.setLineWidth(1);

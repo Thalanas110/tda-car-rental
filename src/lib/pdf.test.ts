@@ -103,8 +103,8 @@ describe("generatePdf", () => {
       requestor: "Path Foundation",
       unit: "Toyota HiAce",
       items: [
-        { date: "2026-06-11", destination: "Subic", passenger: "2", amount: 1200 },
-        { date: "2026-06-12", destination: "Olongapo", passenger: "3", amount: 900 },
+        { date: "2026-06-11", unit: "Toyota HiAce", destination: "Subic", passenger: "2", amount: 1200 },
+        { date: "2026-06-12", unit: "Toyota HiAce", destination: "Olongapo", passenger: "3", amount: 900 },
       ],
     });
 
@@ -113,13 +113,13 @@ describe("generatePdf", () => {
     const requestor = textPosition(output, "Requestor: Path Foundation");
     const unit = textPosition(output, "UNIT");
     const table = generatedTable(pdf);
-    const unitHeader = table.head[0].cells[4];
-    const firstUnitCell = table.body[0].cells[4];
-    const secondUnitCell = table.body[1].cells[4];
+    const unitHeader = table.head[0].cells[1];
+    const firstUnitCell = table.body[0].cells[1];
+    const secondUnitCell = table.body[1].cells[1];
 
     expect(requestor).toEqual({ x: heading.x, y: heading.y - 13 });
     expect(unitHeader.text).toEqual(["UNIT"]);
-    expect(unitHeader.x).toBeGreaterThan(table.head[0].cells[3].x);
+    expect(unitHeader.x).toBeGreaterThan(table.head[0].cells[0].x);
     expect(unit.x).toBeGreaterThan(heading.x);
     expect(firstUnitCell.text).toEqual(["Toyota HiAce"]);
     expect(secondUnitCell.text).toEqual([""]);
@@ -140,8 +140,65 @@ describe("generatePdf", () => {
     const pdf = await generatePdf({ ...input, docType: "quotation", requestor: "", items: [] });
 
     expect(pdf.output()).toContain("(Requestor: ) Tj");
-    expect(generatedTable(pdf).head[0].cells[4].text).toEqual(["UNIT"]);
+    expect(generatedTable(pdf).head[0].cells[1].text).toEqual(["UNIT"]);
     expect(generatedTable(pdf).body).toHaveLength(0);
+  });
+
+  it("uses balanced fixed quotation columns and merges shared values only", async () => {
+    const pdf = await generatePdf({
+      ...input,
+      docType: "quotation",
+      items: [
+        { date: "2026-06-11", unit: "Toyota HiAce", destination: "Subic", passenger: "A. Cruz", amount: 1200 },
+        { date: "2026-06-12", unit: "Toyota HiAce", destination: "Olongapo", passenger: "A. Cruz", amount: 900 },
+      ],
+    });
+    const table = generatedTable(pdf);
+
+    expect([0, 1, 2, 3, 4].map((index) => table.head[0].cells[index].text[0])).toEqual([
+      "DATE", "UNIT", "DESTINATION", "PASSENGER", "AMOUNT",
+    ]);
+    expect([0, 1, 2, 3, 4].map((index) => table.head[0].cells[index].width)).toEqual([
+      70, 75, 140, 85, 82,
+    ]);
+    expect(table.head[0].cells[0].x).toBe(80);
+    expect(table.head[0].cells[4].x + table.head[0].cells[4].width).toBe(532);
+    expect(table.body[1].cells[1].text).toEqual([""]);
+    expect(table.body[1].cells[3].text).toEqual([""]);
+    expect(table.body[1].cells[0].text).toEqual(["2026-06-12"]);
+    expect(table.body[1].cells[2].text).toEqual(["Olongapo"]);
+    expect(table.body[1].cells[4].text).toEqual(["PHP 900.00"]);
+  });
+
+  it("keeps differing quotation units and passengers in their own rows", async () => {
+    const pdf = await generatePdf({
+      ...input,
+      docType: "quotation",
+      items: [
+        { date: "2026-06-11", unit: "Toyota HiAce", destination: "Subic", passenger: "A. Cruz", amount: 1200 },
+        { date: "2026-06-12", unit: "Mitsubishi L300", destination: "Olongapo", passenger: "B. Reyes", amount: 900 },
+      ],
+    });
+    const table = generatedTable(pdf);
+
+    expect(table.body[1].cells[1].text).toEqual(["Mitsubishi", "L300"]);
+    expect(table.body[1].cells[3].text).toEqual(["B. Reyes"]);
+  });
+
+  it("uses the legacy document unit when quotation line items do not yet have one", async () => {
+    const pdf = await generatePdf({
+      ...input,
+      docType: "quotation",
+      unit: "Toyota HiAce",
+      items: [
+        { date: "2026-06-11", destination: "Subic", passenger: "A. Cruz", amount: 1200 },
+        { date: "2026-06-12", destination: "Olongapo", passenger: "A. Cruz", amount: 900 },
+      ],
+    });
+    const table = generatedTable(pdf);
+
+    expect(table.body[0].cells[1].text).toEqual(["Toyota HiAce"]);
+    expect(table.body[1].cells[1].text).toEqual([""]);
   });
 
   it("moves billing totals and payment details to a new page before the footer", async () => {

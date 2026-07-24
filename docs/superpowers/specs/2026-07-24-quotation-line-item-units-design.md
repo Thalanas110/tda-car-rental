@@ -29,15 +29,16 @@ flags are stored separately.
 
 Add `unit` to the line-item JSON structure. Existing saved quotation rows
 without an item-level Unit use the document-level legacy `unit` value when
-opened for editing, assigning it to every existing line item. Saving writes
-the item-level Units normally.
+opened for editing or rendered directly from the document list, assigning it
+to every effective line item. Saving writes the item-level Units normally.
 
 The existing document-level `unit` database column remains for compatibility
 and list display. For a newly saved quotation it stores the shared item Unit
 when every line item has the same non-empty Unit, `Multiple units` when they differ,
 and
-an empty value when there are no line items. The
-generated quotation PDF reads Units exclusively from line items.
+an empty value when there are no line items or every Unit is blank. The generated quotation PDF reads
+Units from line items, falling back to the legacy document value only when an
+old item has no Unit property.
 
 ## PDF layout
 
