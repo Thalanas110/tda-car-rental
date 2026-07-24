@@ -188,6 +188,12 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let afterY = (doc as any).lastAutoTable.finalY + 14;
+  const footerY = pageH - 90;
+
+  if (input.docType === "billing" && afterY + 126 > footerY - 12) {
+    doc.addPage();
+    afterY = marginL;
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
@@ -226,7 +232,6 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
   }
 
   // Footer
-  const footerY = pageH - 90;
   doc.setFont("times", "bold");
   doc.setFontSize(14);
   doc.text("TDA CAR RENTAL SERVICES", pageW / 2, footerY, { align: "center" });
