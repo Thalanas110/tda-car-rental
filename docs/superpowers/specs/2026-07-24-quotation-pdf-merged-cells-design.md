@@ -28,7 +28,9 @@ AutoTable continues to calculate the table layout and row heights. Its text in
 shared Unit and Passenger cells is suppressed. After a relevant cell is drawn,
 the renderer groups adjacent shared rows on the same page, paints the group
 border and white interior over AutoTable's individual cells, then writes the
-value at the calculated midpoint. The normal black drawing state is restored
+wrapped value at the calculated midpoint. The hidden source cell reserves the
+same wrapped height before AutoTable lays out the row, so multi-line values
+remain inside the merged border. The normal black drawing state is restored
 afterward.
 
 This avoids changing persisted data or relying on unsupported AutoTable row-

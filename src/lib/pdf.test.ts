@@ -26,6 +26,7 @@ type TableCell = {
   x: number;
   y: number;
   width: number;
+  height: number;
 };
 type GeneratedTable = {
   head: Array<{ cells: Record<number, TableCell> }>;
@@ -41,6 +42,14 @@ function textPosition(output: string, text: string) {
   const match = output.match(new RegExp(`([\\d.]+) ([\\d.]+) Td\\n\\(${escaped}\\) Tj`));
   expect(match).not.toBeNull();
   return { x: Number(match![1]), y: Number(match![2]) };
+}
+
+function textPositions(output: string, text: string) {
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return [...output.matchAll(new RegExp(`([\\d.]+) ([\\d.]+) Td\\n\\(${escaped}\\) Tj`, "g"))].map((match) => ({
+    x: Number(match[1]),
+    y: Number(match[2]),
+  }));
 }
 
 describe("generatePdf", () => {
@@ -121,17 +130,10 @@ describe("generatePdf", () => {
     expect(unitHeader.text).toEqual(["UNIT"]);
     expect(unitHeader.x).toBeGreaterThan(table.head[0].cells[0].x);
     expect(unit.x).toBeGreaterThan(heading.x);
-    expect(firstUnitCell.text).toEqual(["Toyota HiAce"]);
-    expect(secondUnitCell.text).toEqual([""]);
+    expect(firstUnitCell.text).toEqual([]);
+    expect(secondUnitCell.text).toEqual([]);
     expect(secondUnitCell.x).toBe(firstUnitCell.x);
     expect(secondUnitCell.width).toBe(firstUnitCell.width);
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const borderY = pageHeight - secondUnitCell.y;
-    expect(output).toMatch(
-      new RegExp(
-        `1\\. G\\n1\\. w\\n${secondUnitCell.x + 0.5} ${borderY}\\.? m\\n${secondUnitCell.x + secondUnitCell.width - 0.5} ${borderY}\\.? l\\nS`,
-      ),
-    );
     expect(output).not.toContain("(Requestor) Tj");
     expect(output).not.toContain("Unit Requested:");
   });
@@ -163,11 +165,112 @@ describe("generatePdf", () => {
     ]);
     expect(table.head[0].cells[0].x).toBe(80);
     expect(table.head[0].cells[4].x + table.head[0].cells[4].width).toBe(532);
-    expect(table.body[1].cells[1].text).toEqual([""]);
-    expect(table.body[1].cells[3].text).toEqual([""]);
+    expect(table.body[1].cells[1].text).toEqual([]);
+    expect(table.body[1].cells[3].text).toEqual([]);
     expect(table.body[1].cells[0].text).toEqual(["2026-06-12"]);
     expect(table.body[1].cells[2].text).toEqual(["Olongapo"]);
     expect(table.body[1].cells[4].text).toEqual(["PHP 900.00"]);
+  });
+
+  it("centers shared quotation values across their merged cells", async () => {
+    const pdf = await generatePdf({
+      ...input,
+      docType: "quotation",
+      items: [
+        { date: "2026-06-11", unit: "Toyota HiAce", destination: "Subic", passenger: "A. Cruz", amount: 1200 },
+        { date: "2026-06-12", unit: "Toyota HiAce", destination: "Olongapo", passenger: "A. Cruz", amount: 900 },
+      ],
+    });
+    const table = generatedTable(pdf);
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    for (const [column, value] of [[1, "Toyota HiAce"], [3, "A. Cruz"]] as const) {
+      const first = table.body[0].cells[column];
+      const last = table.body.at(-1)!.cells[column];
+      const expected = {
+        x: first.x + first.width / 2,
+        y: pageHeight - (first.y + (last.y + last.height - first.y) / 2),
+      };
+
+      expect(table.body.map((row) => row.cells[column].text)).toEqual([[], []]);
+      const [position] = textPositions(pdf.output(), value);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      const middleBaselineOffset = pdf.getFontSize() / 2 - pdf.getFontSize() * (pdf.getLineHeightFactor() - 1);
+      expect(position).toBeDefined();
+      expect(Math.abs(position.x + pdf.getTextWidth(value) / 2 - expected.x)).toBeLessThan(1);
+      expect(Math.abs(position.y - (expected.y - middleBaselineOffset))).toBeLessThan(1);
+    }
+  });
+
+  it("wraps a long shared Unit within its merged cell", async () => {
+    const pdf = await generatePdf({
+      ...input,
+      docType: "quotation",
+      items: [
+        { date: "2026-06-11", unit: "Mitsubishi L300", destination: "Subic", passenger: "A. Cruz", amount: 1200 },
+        { date: "2026-06-12", unit: "Mitsubishi L300", destination: "Olongapo", passenger: "B. Reyes", amount: 900 },
+      ],
+    });
+    const table = generatedTable(pdf);
+    const first = table.body[0].cells[1];
+    const last = table.body.at(-1)!.cells[1];
+    const expectedCenterY = pdf.internal.pageSize.getHeight() -
+      (first.y + (last.y + last.height - first.y) / 2);
+    const output = pdf.output();
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    const middleBaselineOffset = pdf.getFontSize() / 2 - pdf.getFontSize() * (pdf.getLineHeightFactor() - 1);
+    const lineHeight = pdf.getLineHeight() / pdf.internal.scaleFactor;
+    const mitsubishi = textPositions(output, "Mitsubishi");
+
+    expect(textPositions(output, "Mitsubishi L300")).toHaveLength(0);
+    expect(mitsubishi).toHaveLength(1);
+    expect(output).toMatch(/\(Mitsubishi\) Tj\n[\d.-]+ [\d.-]+ Td\n\(L300\) Tj/);
+    expect(Math.abs(mitsubishi[0].x + pdf.getTextWidth("Mitsubishi") / 2 - (first.x + first.width / 2))).toBeLessThan(1);
+    expect(Math.abs(mitsubishi[0].y - (expectedCenterY + lineHeight / 2 - middleBaselineOffset))).toBeLessThan(1);
+  });
+
+  it("reserves row height for a multi-line merged Unit", async () => {
+    const unit = "Mitsubishi Fuso Rosa Deluxe";
+    const pdf = await generatePdf({
+      ...input,
+      docType: "quotation",
+      items: [{ date: "2026-06-11", unit, destination: "Subic", passenger: "A. Cruz", amount: 1200 }],
+    });
+    const cell = generatedTable(pdf).body[0].cells[1];
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    const lines = pdf.splitTextToSize(unit, cell.width - 12);
+    const requiredHeight = lines.length * (pdf.getLineHeight() / pdf.internal.scaleFactor) + 12;
+
+    expect(lines.length).toBeGreaterThanOrEqual(3);
+    expect(cell.height).toBeGreaterThanOrEqual(requiredHeight);
+  });
+
+  it("renders one shared quotation label per physical table page", async () => {
+    const pdf = await generatePdf({
+      ...input,
+      docType: "quotation",
+      items: Array.from({ length: 40 }, (_, index) => ({
+        date: `2026-06-${index + 1}`,
+        unit: "Toyota HiAce",
+        destination: "Olongapo City",
+        passenger: "A. Cruz",
+        amount: 900,
+      })),
+    });
+    const table = generatedTable(pdf);
+    const pageCount = pdf.getNumberOfPages();
+
+    expect(pageCount).toBeGreaterThan(1);
+    expect(textPositions(pdf.output(), "Toyota HiAce")).toHaveLength(pageCount);
+    expect(textPositions(pdf.output(), "A. Cruz")).toHaveLength(pageCount);
+    expect(table.body[0].cells[0].text).toEqual(["2026-06-1"]);
+    expect(table.body.at(-1)!.cells[2].text).toEqual(["Olongapo City"]);
+    expect(table.body.at(-1)!.cells[4].text).toEqual(["PHP 900.00"]);
   });
 
   it("keeps differing quotation units and passengers in their own rows", async () => {
@@ -197,8 +300,9 @@ describe("generatePdf", () => {
     });
     const table = generatedTable(pdf);
 
-    expect(table.body[0].cells[1].text).toEqual(["Toyota HiAce"]);
-    expect(table.body[1].cells[1].text).toEqual([""]);
+    expect(table.body[0].cells[1].text).toEqual([]);
+    expect(table.body[1].cells[1].text).toEqual([]);
+    expect(textPositions(pdf.output(), "Toyota HiAce")).toHaveLength(1);
   });
 
   it("moves billing totals and payment details to a new page before the footer", async () => {

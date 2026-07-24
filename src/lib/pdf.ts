@@ -69,6 +69,45 @@ function rowsSharePdfValue(items: Item[], field: "unit" | "passenger"): boolean 
   return Boolean(first) && items.every((item) => item[field] === first);
 }
 
+type DrawnQuoteCell = {
+  pageNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+function quoteSharedColumnWidth(index: 1 | 3): number {
+  return index === 1 ? 75 : 85;
+}
+
+function quoteSpanLines(doc: jsPDF, value: string, width: number, horizontalPadding: number): string[] {
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  return doc.splitTextToSize(value, width - horizontalPadding);
+}
+
+function drawMergedQuoteSpan(doc: jsPDF, cells: DrawnQuoteCell[], value: string, pageNumber: number) {
+  const pageCells = cells.filter((cell) => cell.pageNumber === pageNumber);
+  if (!pageCells.length) return;
+
+  const first = pageCells[0];
+  const top = Math.min(...pageCells.map((cell) => cell.y));
+  const bottom = Math.max(...pageCells.map((cell) => cell.y + cell.height));
+  const height = bottom - top;
+
+  doc.setFillColor(255, 255, 255);
+  doc.rect(first.x, top, first.width, height, "F");
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.7);
+  doc.rect(first.x, top, first.width, height, "S");
+  doc.setTextColor(0, 0, 0);
+  const lines = quoteSpanLines(doc, value, first.width, 12);
+  const lineHeight = doc.getLineHeight() / doc.internal.scaleFactor;
+  const textY = top + height / 2 - ((lines.length - 1) * lineHeight) / 2;
+  doc.text(lines, first.x + first.width / 2, textY, { align: "center", baseline: "middle" });
+}
+
 export async function generatePdf(input: PdfInput): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -119,6 +158,8 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
     : input.items;
   const sharedQuoteUnit = isQuote && rowsSharePdfValue(tableItems, "unit");
   const sharedQuotePassenger = isQuote && rowsSharePdfValue(tableItems, "passenger");
+  const sharedQuoteUnitCells: DrawnQuoteCell[] = [];
+  const sharedQuotePassengerCells: DrawnQuoteCell[] = [];
   const head = isQuote
     ? [["DATE", "UNIT", "DESTINATION", "PASSENGER", "AMOUNT"]]
     : [["DATE", "DESTINATION", "PASSENGER", "AMOUNT"]];
@@ -172,25 +213,38 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
         ((data.column.index === 1 && sharedQuoteUnit) ||
           (data.column.index === 3 && sharedQuotePassenger));
       if (isSharedQuoteColumn && data.section === "body") {
-        if (data.row.index === 0) {
-          data.cell.styles.valign = "middle";
-        } else {
-          data.cell.text = [""];
-        }
+        const column = data.column.index as 1 | 3;
+        const lines = quoteSpanLines(
+          data.doc,
+          data.cell.text.join(" "),
+          quoteSharedColumnWidth(column),
+          data.cell.padding("horizontal"),
+        );
+        const minimumHeight =
+          lines.length * (data.doc.getLineHeight() / data.doc.internal.scaleFactor) + data.cell.padding("vertical");
+        data.cell.styles.minCellHeight = Math.max(data.cell.styles.minCellHeight, minimumHeight);
+        data.cell.text = [];
       }
     },
     didDrawCell: (data) => {
-      const isSharedQuoteColumn =
-        isQuote &&
-        ((data.column.index === 1 && sharedQuoteUnit) ||
-          (data.column.index === 3 && sharedQuotePassenger));
-      if (isSharedQuoteColumn && data.section === "body" && data.row.index > 0) {
-        const { x, y, width } = data.cell;
-        doc.setDrawColor(255, 255, 255);
-        doc.setLineWidth(1);
-        doc.line(x + 0.5, y, x + width - 0.5, y);
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.7);
+      if (!isQuote || data.section !== "body") return;
+      const cell = {
+        pageNumber: data.pageNumber,
+        x: data.cell.x,
+        y: data.cell.y,
+        width: data.cell.width,
+        height: data.cell.height,
+      };
+      if (data.column.index === 1 && sharedQuoteUnit) sharedQuoteUnitCells.push(cell);
+      if (data.column.index === 3 && sharedQuotePassenger) sharedQuotePassengerCells.push(cell);
+    },
+    didDrawPage: (data) => {
+      if (!isQuote) return;
+      if (sharedQuoteUnit) {
+        drawMergedQuoteSpan(doc, sharedQuoteUnitCells, tableItems[0]?.unit || "", data.pageNumber);
+      }
+      if (sharedQuotePassenger) {
+        drawMergedQuoteSpan(doc, sharedQuotePassengerCells, tableItems[0]?.passenger || "", data.pageNumber);
       }
     },
   });
