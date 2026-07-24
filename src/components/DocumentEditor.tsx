@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { generatePdf } from "@/lib/pdf";
-import { saveDoc, type DocType, type Item } from "@/lib/db";
+import { saveDoc, updateDoc, type DocType, type Item } from "@/lib/db";
+import type { EditorInitial } from "@/lib/document-editor-data";
 
 function todayLong(): string {
   return new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -9,21 +10,14 @@ function emptyItem(): Item {
   return { date: "", destination: "", passenger: "", amount: 0 };
 }
 
-export interface EditorInitial {
-  date?: string;
-  billedTo?: string;
-  unit?: string;
-  driver?: string;
-  requestor?: string;
-  items?: Item[];
-}
-
 export function DocumentEditor({
   docType,
+  documentId,
   initial,
   onSaved,
 }: {
   docType: DocType;
+  documentId?: number;
   initial?: EditorInitial;
   onSaved?: () => void;
 }) {
@@ -60,7 +54,7 @@ export function DocumentEditor({
   };
   const save = async () => {
     const input = buildInput();
-    await saveDoc({
+    const draft = {
       doc_type: docType,
       doc_date: date,
       billed_to: billedTo,
@@ -69,7 +63,12 @@ export function DocumentEditor({
       requestor,
       total,
       items_json: JSON.stringify(input.items),
-    });
+    };
+    if (documentId === undefined) {
+      await saveDoc(draft);
+    } else {
+      await updateDoc(documentId, draft);
+    }
     onSaved?.();
   };
 
