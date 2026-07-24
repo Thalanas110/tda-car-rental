@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generatePdf } from "./pdf";
 
@@ -14,7 +14,16 @@ const input = {
 describe("generatePdf", () => {
   beforeEach(async () => {
     const britannicBold = await readFile("public/Britannic Bold Regular.ttf");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(britannicBold)));
+    const signatureName = (await readdir("signature")).find((name) => /\.(jpe?g|png)$/i.test(name));
+    const signature = await readFile(`signature/${signatureName}`);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        Promise.resolve(
+          new Response(url === "/Britannic%20Bold%20Regular.ttf" ? britannicBold : signature),
+        ),
+      ),
+    );
   });
 
   afterEach(() => {
@@ -35,5 +44,17 @@ describe("generatePdf", () => {
       fontName: "times",
       fontStyle: "bold",
     });
+  });
+
+  it("embeds the local signature beside billing payment details", async () => {
+    const pdf = await generatePdf(input);
+
+    expect(pdf.output()).toContain("/Subtype /Image");
+  });
+
+  it("does not embed the signature in quotation PDFs", async () => {
+    const pdf = await generatePdf({ ...input, docType: "quotation" });
+
+    expect(pdf.output()).not.toContain("/Subtype /Image");
   });
 });

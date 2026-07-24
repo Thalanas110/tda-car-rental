@@ -3,6 +3,15 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Item } from "./db";
 
+const signatureAssets = import.meta.glob("../../signature/*.{jpg,jpeg,png,JPG,JPEG,PNG}", {
+  eager: true,
+  import: "default",
+  query: "?url",
+}) as Record<string, string>;
+const [signaturePath, signatureUrl] = Object.entries(signatureAssets).sort(([left], [right]) =>
+  left.localeCompare(right),
+)[0] ?? [];
+
 export interface PdfInput {
   docType: "billing" | "quotation";
   date: string; // e.g. "14 June 2026"
@@ -14,6 +23,15 @@ export interface PdfInput {
 }
 
 let britannicBoldBase64: Promise<string> | undefined;
+let billingSignature: Promise<{ data: string; format: "JPEG" | "PNG" } | undefined> | undefined;
+
+function arrayBufferToBase64(data: ArrayBuffer): string {
+  let binary = "";
+  for (const byte of new Uint8Array(data)) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
 
 function loadBritannicBold(): Promise<string> {
   britannicBoldBase64 ??= fetch("/Britannic%20Bold%20Regular.ttf")
@@ -23,14 +41,24 @@ function loadBritannicBold(): Promise<string> {
       }
       return response.arrayBuffer();
     })
-    .then((fontData) => {
-      let binary = "";
-      for (const byte of new Uint8Array(fontData)) {
-        binary += String.fromCharCode(byte);
-      }
-      return btoa(binary);
-    });
+    .then(arrayBufferToBase64);
   return britannicBoldBase64;
+}
+
+function loadBillingSignature(): Promise<{ data: string; format: "JPEG" | "PNG" } | undefined> {
+  billingSignature ??= !signatureUrl
+    ? Promise.resolve(undefined)
+    : fetch(signatureUrl)
+        .then(async (response) => {
+          if (!response.ok) return undefined;
+          const mimeType = signaturePath?.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+          return {
+            data: `data:${mimeType};base64,${arrayBufferToBase64(await response.arrayBuffer())}`,
+            format: mimeType === "image/png" ? "PNG" : "JPEG",
+          } as const;
+        })
+        .catch(() => undefined);
+  return billingSignature;
 }
 
 const money = (n: number) =>
@@ -43,7 +71,10 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
   const marginL = 80;
   const marginR = 60;
 
-  const britannicBold = await loadBritannicBold();
+  const [britannicBold, signature] = await Promise.all([
+    loadBritannicBold(),
+    input.docType === "billing" ? loadBillingSignature() : Promise.resolve(undefined),
+  ]);
   doc.addFileToVFS("Britannic Bold Regular.ttf", britannicBold);
   doc.addFont("Britannic Bold Regular.ttf", "Britannic Bold", "normal");
 
@@ -170,6 +201,9 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
     const total = input.items.reduce((s, i) => s + i.amount, 0);
     doc.text(money(total), marginL + 220, afterY);
     afterY += 34;
+    if (signature) {
+      doc.addImage(signature.data, signature.format, marginL + 220, afterY - 30, 120, 80);
+    }
     doc.setFontSize(10);
     doc.text("PAYMENT DETAILS:", marginL, afterY); afterY += lineGap;
     doc.text("PLEASE DEPOSIT PAYMENT TO:", marginL, afterY); afterY += lineGap;
