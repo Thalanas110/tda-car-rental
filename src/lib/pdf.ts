@@ -13,18 +13,42 @@ export interface PdfInput {
   items: Item[];
 }
 
+let britannicBoldBase64: Promise<string> | undefined;
+
+function loadBritannicBold(): Promise<string> {
+  britannicBoldBase64 ??= fetch("/Britannic%20Bold%20Regular.ttf")
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error("Could not load Britannic Bold for PDF generation.");
+      }
+      return response.arrayBuffer();
+    })
+    .then((fontData) => {
+      let binary = "";
+      for (const byte of new Uint8Array(fontData)) {
+        binary += String.fromCharCode(byte);
+      }
+      return btoa(binary);
+    });
+  return britannicBoldBase64;
+}
+
 const money = (n: number) =>
   "PHP " + n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function generatePdf(input: PdfInput): jsPDF {
+export async function generatePdf(input: PdfInput): Promise<jsPDF> {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const marginL = 80;
   const marginR = 60;
 
+  const britannicBold = await loadBritannicBold();
+  doc.addFileToVFS("Britannic Bold Regular.ttf", britannicBold);
+  doc.addFont("Britannic Bold Regular.ttf", "Britannic Bold", "normal");
+
   // Header — big bold title
-  doc.setFont("times", "bold");
+  doc.setFont("Britannic Bold", "normal");
   doc.setFontSize(22);
   doc.text("TDA CAR RENTAL SERVICES", marginL, 90);
 
@@ -169,7 +193,7 @@ export function generatePdf(input: PdfInput): jsPDF {
 
   // Footer
   const footerY = pageH - 90;
-  doc.setFont("times", "bolditalic");
+  doc.setFont("times", "bold");
   doc.setFontSize(14);
   doc.text("TDA CAR RENTAL SERVICES", pageW / 2, footerY, { align: "center" });
   doc.setFontSize(12);

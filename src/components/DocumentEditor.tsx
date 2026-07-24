@@ -44,12 +44,18 @@ export function DocumentEditor({
     items: items.map((it) => ({ ...it, amount: Number(it.amount) || 0 })),
   });
 
-  const preview = () => {
-    const pdf = generatePdf(buildInput());
-    window.open(pdf.output("bloburl"), "_blank");
+  const preview = async () => {
+    const previewWindow = window.open("", "_blank");
+    const pdf = await generatePdf(buildInput());
+    const url = pdf.output("bloburl");
+    if (previewWindow) {
+      previewWindow.location.href = url;
+    } else {
+      window.open(url, "_blank");
+    }
   };
-  const download = () => {
-    const pdf = generatePdf(buildInput());
+  const download = async () => {
+    const pdf = await generatePdf(buildInput());
     pdf.save(`${docType}-${date.replace(/\s+/g, "_")}.pdf`);
   };
   const save = async () => {
@@ -137,8 +143,8 @@ export function DocumentEditor({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button onClick={preview} className="btn-primary">Preview PDF</button>
-        <button onClick={download} className="btn-primary">Download PDF</button>
+        <button onClick={() => void preview()} className="btn-primary">Preview PDF</button>
+        <button onClick={() => void download()} className="btn-primary">Download PDF</button>
         <button onClick={save} className="btn-secondary">Save</button>
       </div>
     </div>

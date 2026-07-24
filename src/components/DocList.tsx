@@ -35,14 +35,14 @@ export function DocList({ docType }: { docType: DocType }) {
     await refresh();
   };
 
-  const downloadDoc = (doc: DocRow) => {
+  const downloadDoc = async (doc: DocRow) => {
     let items: Item[] = [];
     try {
       items = JSON.parse(doc.items_json);
     } catch {
       // Existing records may predate current validation; leave their PDF line items empty.
     }
-    const pdf = generatePdf({
+    const pdf = await generatePdf({
       docType: doc.doc_type,
       date: doc.doc_date,
       billedTo: doc.billed_to,
@@ -54,14 +54,15 @@ export function DocList({ docType }: { docType: DocType }) {
     pdf.save(`${doc.doc_type}-${doc.doc_date.replace(/\s+/g, "_")}.pdf`);
   };
 
-  const previewDoc = (doc: DocRow) => {
+  const previewDoc = async (doc: DocRow) => {
     let items: Item[] = [];
     try {
       items = JSON.parse(doc.items_json);
     } catch {
       // Existing records may predate current validation; leave their PDF line items empty.
     }
-    const pdf = generatePdf({
+    const previewWindow = window.open("", "_blank");
+    const pdf = await generatePdf({
       docType: doc.doc_type,
       date: doc.doc_date,
       billedTo: doc.billed_to,
@@ -70,7 +71,12 @@ export function DocList({ docType }: { docType: DocType }) {
       requestor: doc.requestor,
       items,
     });
-    window.open(pdf.output("bloburl"), "_blank");
+    const url = pdf.output("bloburl");
+    if (previewWindow) {
+      previewWindow.location.href = url;
+    } else {
+      window.open(url, "_blank");
+    }
   };
 
   const label = docType === "billing" ? "Billing" : "Quotation";
@@ -119,14 +125,14 @@ export function DocList({ docType }: { docType: DocType }) {
                   <td className="p-3 text-right" onClick={(event) => event.stopPropagation()}>
                     <div className="inline-flex gap-1">
                       <button
-                        onClick={() => previewDoc(doc)}
+                        onClick={() => void previewDoc(doc)}
                         className="rounded p-1.5 hover:bg-accent"
                         title="Preview"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => downloadDoc(doc)}
+                        onClick={() => void downloadDoc(doc)}
                         className="rounded p-1.5 hover:bg-accent"
                         title="Download"
                       >
