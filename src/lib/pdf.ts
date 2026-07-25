@@ -144,7 +144,6 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
     doc.text("Billed To:", marginL, y); y += lineGap;
     doc.text(input.billedTo || "", marginL, y); y += 24;
     doc.text("DETAILS: CAR RENTAL SERVICES", marginL, y); y += 30;
-    doc.text(`Unit Used: ${input.unit}`, marginL, y); y += lineGap;
     doc.text(`Driver: ${input.driver || ""}`, marginL, y); y += 14;
   } else {
     doc.text("QUOTATION REQUEST", marginL, y); y += lineGap;
@@ -152,30 +151,26 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
   }
 
   const tableStartY = y;
-  const isQuote = input.docType === "quotation";
-  const tableItems = isQuote
-    ? input.items.map((item) => ({ ...item, unit: item.unit ?? input.unit }))
-    : input.items;
-  const sharedQuoteUnit = isQuote && rowsSharePdfValue(tableItems, "unit");
-  const sharedQuotePassenger = isQuote && rowsSharePdfValue(tableItems, "passenger");
-  const sharedQuoteUnitCells: DrawnQuoteCell[] = [];
-  const sharedQuotePassengerCells: DrawnQuoteCell[] = [];
-  const head = isQuote
-    ? [["DATE", "UNIT", "DESTINATION", "PASSENGER", "AMOUNT"]]
-    : [["DATE", "DESTINATION", "PASSENGER", "AMOUNT"]];
-
-  const body = tableItems.map((item) =>
-    isQuote
-      ? [item.date, item.unit || "", item.destination, item.passenger, money(item.amount)]
-      : [item.date, item.destination, item.passenger, money(item.amount)],
-  );
+  const tableItems = input.items.map((item) => ({ ...item, unit: item.unit ?? input.unit }));
+  const sharedUnit = rowsSharePdfValue(tableItems, "unit");
+  const sharedPassenger = rowsSharePdfValue(tableItems, "passenger");
+  const sharedUnitCells: DrawnQuoteCell[] = [];
+  const sharedPassengerCells: DrawnQuoteCell[] = [];
+  const head = [["DATE", "UNIT", "DESTINATION", "PASSENGER", "AMOUNT"]];
+  const body = tableItems.map((item) => [
+    item.date,
+    item.unit || "",
+    item.destination,
+    item.passenger,
+    money(item.amount),
+  ]);
 
   autoTable(doc, {
     startY: tableStartY,
     head,
     body,
     theme: "grid",
-    margin: isQuote ? { left: 80, right: 80 } : { left: marginL, right: marginR },
+    margin: { left: 80, right: 80 },
     styles: {
       font: "helvetica",
       fontSize: 10,
@@ -193,26 +188,18 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
       lineWidth: 0.7,
       lineColor: [0, 0, 0],
     },
-    columnStyles: isQuote
-      ? {
-          0: { cellWidth: 70 },
-          1: { cellWidth: 75 },
-          2: { cellWidth: 140, halign: "center" },
-          3: { cellWidth: 85 },
-          4: { cellWidth: 82 },
-        }
-      : {
-          0: { cellWidth: 80 },
-          1: { cellWidth: 230, halign: "center" },
-          2: { cellWidth: 90 },
-          3: { cellWidth: 95 },
-        },
+    columnStyles: {
+      0: { cellWidth: 70 },
+      1: { cellWidth: 75 },
+      2: { cellWidth: 140, halign: "center" },
+      3: { cellWidth: 85 },
+      4: { cellWidth: 82 },
+    },
     didParseCell: (data) => {
-      const isSharedQuoteColumn =
-        isQuote &&
-        ((data.column.index === 1 && sharedQuoteUnit) ||
-          (data.column.index === 3 && sharedQuotePassenger));
-      if (isSharedQuoteColumn && data.section === "body") {
+      const isSharedColumn =
+        (data.column.index === 1 && sharedUnit) ||
+        (data.column.index === 3 && sharedPassenger);
+      if (isSharedColumn && data.section === "body") {
         const column = data.column.index as 1 | 3;
         const lines = quoteSpanLines(
           data.doc,
@@ -227,7 +214,7 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
       }
     },
     didDrawCell: (data) => {
-      if (!isQuote || data.section !== "body") return;
+      if (data.section !== "body") return;
       const cell = {
         pageNumber: data.pageNumber,
         x: data.cell.x,
@@ -235,16 +222,15 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
         width: data.cell.width,
         height: data.cell.height,
       };
-      if (data.column.index === 1 && sharedQuoteUnit) sharedQuoteUnitCells.push(cell);
-      if (data.column.index === 3 && sharedQuotePassenger) sharedQuotePassengerCells.push(cell);
+      if (data.column.index === 1 && sharedUnit) sharedUnitCells.push(cell);
+      if (data.column.index === 3 && sharedPassenger) sharedPassengerCells.push(cell);
     },
     didDrawPage: (data) => {
-      if (!isQuote) return;
-      if (sharedQuoteUnit) {
-        drawMergedQuoteSpan(doc, sharedQuoteUnitCells, tableItems[0]?.unit || "", data.pageNumber);
+      if (sharedUnit) {
+        drawMergedQuoteSpan(doc, sharedUnitCells, tableItems[0]?.unit || "", data.pageNumber);
       }
-      if (sharedQuotePassenger) {
-        drawMergedQuoteSpan(doc, sharedQuotePassengerCells, tableItems[0]?.passenger || "", data.pageNumber);
+      if (sharedPassenger) {
+        drawMergedQuoteSpan(doc, sharedPassengerCells, tableItems[0]?.passenger || "", data.pageNumber);
       }
     },
   });
