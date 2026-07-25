@@ -72,6 +72,42 @@ describe("DocumentEditor", () => {
     });
   });
 
+  it("synchronizes billing passengers and units from the first row", async () => {
+    render(
+      <DocumentEditor
+        docType="billing"
+        initial={{
+          billedTo: "Path Foundation",
+          driver: "Teddy Dimate",
+          items: [
+            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
+            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Mitsubishi L300", amount: 900 },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.queryByText("Unit Used")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Requestor")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Same passenger?" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Same unit?" }));
+    fireEvent.change(screen.getByLabelText("Passenger 1"), { target: { value: "C. Santos" } });
+    fireEvent.change(screen.getByLabelText("Unit 1"), { target: { value: "Toyota Commuter" } });
+    fireEvent.click(screen.getByRole("button", { name: /add row/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByLabelText("Passenger 2")).toHaveValue("C. Santos");
+    expect(screen.getByLabelText("Passenger 2")).toBeDisabled();
+    expect(screen.getByLabelText("Unit 2")).toHaveValue("Toyota Commuter");
+    expect(screen.getByLabelText("Unit 2")).toBeDisabled();
+    expect(screen.getByLabelText("Unit 3")).toHaveValue("Toyota Commuter");
+    await waitFor(() => expect(db.saveDoc).toHaveBeenCalledTimes(1));
+    expect(db.saveDoc.mock.calls[0][0]).toMatchObject({ doc_type: "billing", unit: "Toyota Commuter" });
+    expect(JSON.parse(db.saveDoc.mock.calls[0][0].items_json)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ unit: "Toyota Commuter" })]),
+    );
+  });
+
   it("synchronizes quotation passengers and units from the first row", () => {
     render(
       <DocumentEditor

@@ -6,12 +6,12 @@ import type { EditorInitial } from "@/lib/document-editor-data";
 function todayLong(): string {
   return new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
-function emptyItem(docType: DocType, patch: Partial<Item> = {}): Item {
+function emptyItem(patch: Partial<Item> = {}): Item {
   return {
     date: "",
     destination: "",
     passenger: "",
-    ...(docType === "quotation" ? { unit: "" } : {}),
+    unit: "",
     amount: 0,
     ...patch,
   };
@@ -24,10 +24,9 @@ function synchronizeRows(items: Item[], field: "passenger" | "unit"): Item[] {
   const value = items[0]?.[field] || "";
   return items.map((item) => ({ ...item, [field]: value }));
 }
-function quotationUnitSummary(items: Item[]): string {
-  if (!items.length) return "";
+function documentUnitSummary(items: Item[]): string {
+  if (!items.length || !items.some((item) => item.unit)) return "";
   const firstUnit = items[0].unit || "";
-  if (!items.some((item) => item.unit)) return "";
   return firstUnit && items.every((item) => item.unit === firstUnit) ? firstUnit : "Multiple units";
 }
 
@@ -44,24 +43,21 @@ export function DocumentEditor({
 }) {
   const [date, setDate] = useState(initial?.date ?? todayLong());
   const [billedTo, setBilledTo] = useState(initial?.billedTo ?? "");
-  const [unit, setUnit] = useState(initial?.unit ?? "Sedan");
   const [driver, setDriver] = useState(initial?.driver ?? "Teddy Dimate");
   const [requestor, setRequestor] = useState(initial?.requestor ?? "");
-  const initialItems = initial?.items ?? [emptyItem(docType)];
+  const initialItems = initial?.items ?? [emptyItem()];
   const [items, setItems] = useState<Item[]>(initialItems);
-  const [samePassenger, setSamePassenger] = useState(
-    docType === "quotation" && rowsShare(initialItems, "passenger"),
-  );
-  const [sameUnit, setSameUnit] = useState(docType === "quotation" && rowsShare(initialItems, "unit"));
+  const [samePassenger, setSamePassenger] = useState(rowsShare(initialItems, "passenger"));
+  const [sameUnit, setSameUnit] = useState(rowsShare(initialItems, "unit"));
 
   const total = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const setItem = (idx: number, patch: Partial<Item>) =>
     setItems((previous) => {
       let next = previous.map((item, index) => (index === idx ? { ...item, ...patch } : item));
-      if (docType === "quotation" && idx === 0 && samePassenger && patch.passenger !== undefined) {
+      if (idx === 0 && samePassenger && patch.passenger !== undefined) {
         next = synchronizeRows(next, "passenger");
       }
-      if (docType === "quotation" && idx === 0 && sameUnit && patch.unit !== undefined) {
+      if (idx === 0 && sameUnit && patch.unit !== undefined) {
         next = synchronizeRows(next, "unit");
       }
       return next;
@@ -74,9 +70,9 @@ export function DocumentEditor({
   const addRow = () =>
     setItems((previous) => [
       ...previous,
-      emptyItem(docType, {
-        passenger: docType === "quotation" && samePassenger ? previous[0]?.passenger || "" : "",
-        ...(docType === "quotation" ? { unit: sameUnit ? previous[0]?.unit || "" : "" } : {}),
+      emptyItem({
+        passenger: samePassenger ? previous[0]?.passenger || "" : "",
+        unit: sameUnit ? previous[0]?.unit || "" : "",
       }),
     ]);
   const removeRow = (i: number) => setItems((p) => p.filter((_, idx) => idx !== i));
@@ -87,9 +83,9 @@ export function DocumentEditor({
       docType,
       date,
       billedTo,
-      unit: docType === "quotation" ? quotationUnitSummary(normalizedItems) : unit,
+      unit: documentUnitSummary(normalizedItems),
       driver,
-      requestor,
+      requestor: docType === "quotation" ? requestor : "",
       items: normalizedItems,
     };
   };
@@ -116,7 +112,7 @@ export function DocumentEditor({
       billed_to: billedTo,
       unit: input.unit,
       driver,
-      requestor,
+      requestor: input.requestor,
       total,
       items_json: JSON.stringify(input.items),
     };
@@ -134,11 +130,6 @@ export function DocumentEditor({
         <Field label="Date">
           <input className="input" value={date} onChange={(e) => setDate(e.target.value)} placeholder="14 June 2026" />
         </Field>
-        {docType === "billing" && (
-          <Field label="Unit Used">
-            <input className="input" value={unit} onChange={(e) => setUnit(e.target.value)} />
-          </Field>
-        )}
         {docType === "billing" ? (
           <>
             <Field label="Billed To">
@@ -159,18 +150,16 @@ export function DocumentEditor({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-4">
             <h2 className="font-semibold">Line Items</h2>
-            {docType === "quotation" && (
-              <div className="flex items-center gap-3 text-sm">
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={samePassenger} onChange={(e) => setSameField("passenger", e.target.checked)} />
-                  Same passenger?
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={sameUnit} onChange={(e) => setSameField("unit", e.target.checked)} />
-                  Same unit?
-                </label>
-              </div>
-            )}
+            <div className="flex items-center gap-3 text-sm">
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={samePassenger} onChange={(e) => setSameField("passenger", e.target.checked)} />
+                Same passenger?
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input type="checkbox" checked={sameUnit} onChange={(e) => setSameField("unit", e.target.checked)} />
+                Same unit?
+              </label>
+            </div>
           </div>
           <button onClick={addRow} className="text-sm px-3 py-1.5 rounded-md bg-secondary hover:bg-accent">
             + Add row
@@ -181,7 +170,7 @@ export function DocumentEditor({
             <thead className="bg-muted">
               <tr>
                 <th className="p-2 text-left w-28">Date</th>
-                {docType === "quotation" && <th className="p-2 text-left w-32">Unit</th>}
+                <th className="p-2 text-left w-32">Unit</th>
                 <th className="p-2 text-left">Destination</th>
                 <th className="p-2 text-left w-36">Passenger</th>
                 <th className="p-2 text-right w-32">Amount (PHP)</th>
@@ -192,24 +181,22 @@ export function DocumentEditor({
               {items.map((it, i) => (
                 <tr key={i} className="border-t">
                   <td className="p-1"><input className="input" value={it.date} onChange={(e) => setItem(i, { date: e.target.value })} placeholder="11-Jun-26" /></td>
-                  {docType === "quotation" && (
-                    <td className="p-1">
-                      <input
-                        aria-label={`Unit ${i + 1}`}
-                        className="input"
-                        value={it.unit || ""}
-                        disabled={sameUnit && i > 0}
-                        onChange={(e) => setItem(i, { unit: e.target.value })}
-                      />
-                    </td>
-                  )}
+                  <td className="p-1">
+                    <input
+                      aria-label={`Unit ${i + 1}`}
+                      className="input"
+                      value={it.unit || ""}
+                      disabled={sameUnit && i > 0}
+                      onChange={(e) => setItem(i, { unit: e.target.value })}
+                    />
+                  </td>
                   <td className="p-1"><textarea className="input min-h-[38px]" value={it.destination} onChange={(e) => setItem(i, { destination: e.target.value })} /></td>
                   <td className="p-1">
                     <input
                       aria-label={`Passenger ${i + 1}`}
                       className="input"
                       value={it.passenger}
-                      disabled={docType === "quotation" && samePassenger && i > 0}
+                      disabled={samePassenger && i > 0}
                       onChange={(e) => setItem(i, { passenger: e.target.value })}
                     />
                   </td>

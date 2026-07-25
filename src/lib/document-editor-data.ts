@@ -35,9 +35,7 @@ function parseItems(itemsJson: string): Item[] | null {
 export function toEditorInitial(doc: DocRow): EditorInitial | null {
   const items = parseItems(doc.items_json);
   if (!items) return null;
-  const normalizedItems = doc.doc_type === "quotation"
-    ? items.map((item) => ({ ...item, unit: item.unit ?? doc.unit }))
-    : items;
+  const normalizedItems = items.map((item) => ({ ...item, unit: item.unit ?? doc.unit }));
 
   return {
     date: doc.doc_date,

@@ -29,6 +29,7 @@ describe("toEditorInitial", () => {
           destination: "Makati",
           passenger: "A. Cruz",
           amount: 1200,
+          unit: "Sedan",
         },
       ],
     });
@@ -49,6 +50,10 @@ describe("toEditorInitial", () => {
       { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", amount: 1200, unit: "Toyota HiAce" },
       { date: "12-Jun-26", destination: "Subic", passenger: "A. Cruz", amount: 900, unit: "Toyota HiAce" },
     ]);
+  });
+
+  it("copies a legacy billing unit into every line item", () => {
+    expect(toEditorInitial(row)?.items).toEqual([expect.objectContaining({ unit: "Sedan" })]);
   });
 
   it("returns null when stored line items are malformed", () => {
