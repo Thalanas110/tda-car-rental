@@ -134,6 +134,40 @@ describe("generatePdf", () => {
     expect(output).not.toContain("(Requestor:) Tj");
   });
 
+  it.each(["billing", "quotation"] as const)(
+    "merges only adjacent non-empty Unit and Passenger cells in %s PDFs",
+    async (docType) => {
+      const pdf = await generatePdf({
+        ...input,
+        docType,
+        items: [
+          { date: "2026-06-11", unit: "Toyota HiAce", destination: "Subic", passenger: "A. Cruz", amount: 1200 },
+          { date: "2026-06-12", unit: "Toyota HiAce", destination: "Olongapo", passenger: "A. Cruz", amount: 900 },
+          { date: "2026-06-13", unit: "Mitsubishi L300", destination: "Manila", passenger: "A. Cruz", amount: 1100 },
+          { date: "2026-06-14", unit: "Toyota HiAce", destination: "Subic", passenger: "B. Reyes", amount: 1000 },
+          { date: "2026-06-15", unit: "   ", destination: "Subic", passenger: "   ", amount: 1000 },
+          { date: "2026-06-16", unit: "   ", destination: "Subic", passenger: "   ", amount: 1000 },
+          { date: "2026-06-17", unit: "Toyota HiAce", destination: "Subic", passenger: "B. Reyes", amount: 1000 },
+        ],
+      });
+      const table = generatedTable(pdf);
+      const output = pdf.output();
+
+      expect(table.body.slice(0, 2).map((row) => row.cells[1].text)).toEqual([[], []]);
+      expect(table.body.slice(0, 3).map((row) => row.cells[3].text)).toEqual([[], [], []]);
+      expect(table.body[2].cells[1].text).toEqual(["Mitsubishi", "L300"]);
+      expect(table.body[3].cells[1].text).toEqual(["Toyota HiAce"]);
+      expect(table.body[3].cells[3].text).toEqual(["B. Reyes"]);
+      expect(table.body.slice(4, 6).map((row) => row.cells[1].text)).toEqual([["   "], ["   "]]);
+      expect(table.body.slice(4, 6).map((row) => row.cells[3].text)).toEqual([["   "], ["   "]]);
+      expect(table.body[6].cells[1].text).toEqual(["Toyota HiAce"]);
+      expect(table.body[6].cells[3].text).toEqual(["B. Reyes"]);
+      expect(textPositions(output, "Toyota HiAce")).toHaveLength(3);
+      expect(textPositions(output, "A. Cruz")).toHaveLength(1);
+      expect(textPositions(output, "B. Reyes")).toHaveLength(2);
+    },
+  );
+
   it("uses the legacy document unit when billing line items do not yet have one", async () => {
     const pdf = await generatePdf({
       ...input,

@@ -64,11 +64,6 @@ function loadBillingSignature(): Promise<{ data: string; format: "JPEG" | "PNG" 
 const money = (n: number) =>
   "PHP " + n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-function rowsSharePdfValue(items: Item[], field: "unit" | "passenger"): boolean {
-  const first = items[0]?.[field] || "";
-  return Boolean(first) && items.every((item) => item[field] === first);
-}
-
 type DrawnQuoteCell = {
   pageNumber: number;
   x: number;
@@ -76,6 +71,45 @@ type DrawnQuoteCell = {
   width: number;
   height: number;
 };
+
+type PdfMergedCellRun = {
+  value: string;
+  startRow: number;
+  endRow: number;
+  cells: DrawnQuoteCell[];
+};
+
+function adjacentPdfValueRuns(items: Item[], field: "unit" | "passenger"): PdfMergedCellRun[] {
+  const runs: PdfMergedCellRun[] = [];
+  let startRow = 0;
+
+  while (startRow < items.length) {
+    const value = items[startRow]?.[field] ?? "";
+    if (!value.trim()) {
+      startRow += 1;
+      continue;
+    }
+
+    let endRow = startRow;
+    while (endRow + 1 < items.length && (items[endRow + 1]?.[field] ?? "") === value) {
+      endRow += 1;
+    }
+    if (endRow > startRow) runs.push({ value, startRow, endRow, cells: [] });
+    startRow = endRow + 1;
+  }
+
+  return runs;
+}
+
+function pdfRunByRow(runs: PdfMergedCellRun[]): Map<number, PdfMergedCellRun> {
+  const byRow = new Map<number, PdfMergedCellRun>();
+  for (const run of runs) {
+    for (let row = run.startRow; row <= run.endRow; row += 1) {
+      byRow.set(row, run);
+    }
+  }
+  return byRow;
+}
 
 function quoteSharedColumnWidth(index: 1 | 3): number {
   return index === 1 ? 75 : 85;
@@ -152,10 +186,15 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
 
   const tableStartY = y;
   const tableItems = input.items.map((item) => ({ ...item, unit: item.unit ?? input.unit }));
-  const sharedUnit = rowsSharePdfValue(tableItems, "unit");
-  const sharedPassenger = rowsSharePdfValue(tableItems, "passenger");
-  const sharedUnitCells: DrawnQuoteCell[] = [];
-  const sharedPassengerCells: DrawnQuoteCell[] = [];
+  const unitRuns = adjacentPdfValueRuns(tableItems, "unit");
+  const passengerRuns = adjacentPdfValueRuns(tableItems, "passenger");
+  const unitRunsByRow = pdfRunByRow(unitRuns);
+  const passengerRunsByRow = pdfRunByRow(passengerRuns);
+  const runForPdfCell = (column: number, row: number) => {
+    if (column === 1) return unitRunsByRow.get(row);
+    if (column === 3) return passengerRunsByRow.get(row);
+    return undefined;
+  };
   const head = [["DATE", "UNIT", "DESTINATION", "PASSENGER", "AMOUNT"]];
   const body = tableItems.map((item) => [
     item.date,
@@ -196,14 +235,12 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
       4: { cellWidth: 82 },
     },
     didParseCell: (data) => {
-      const isSharedColumn =
-        (data.column.index === 1 && sharedUnit) ||
-        (data.column.index === 3 && sharedPassenger);
-      if (isSharedColumn && data.section === "body") {
+      const run = data.section === "body" ? runForPdfCell(data.column.index, data.row.index) : undefined;
+      if (run) {
         const column = data.column.index as 1 | 3;
         const lines = quoteSpanLines(
           data.doc,
-          data.cell.text.join(" "),
+          run.value,
           quoteSharedColumnWidth(column),
           data.cell.padding("horizontal"),
         );
@@ -222,15 +259,12 @@ export async function generatePdf(input: PdfInput): Promise<jsPDF> {
         width: data.cell.width,
         height: data.cell.height,
       };
-      if (data.column.index === 1 && sharedUnit) sharedUnitCells.push(cell);
-      if (data.column.index === 3 && sharedPassenger) sharedPassengerCells.push(cell);
+      const run = runForPdfCell(data.column.index, data.row.index);
+      if (run) run.cells.push(cell);
     },
     didDrawPage: (data) => {
-      if (sharedUnit) {
-        drawMergedQuoteSpan(doc, sharedUnitCells, tableItems[0]?.unit || "", data.pageNumber);
-      }
-      if (sharedPassenger) {
-        drawMergedQuoteSpan(doc, sharedPassengerCells, tableItems[0]?.passenger || "", data.pageNumber);
+      for (const run of [...unitRuns, ...passengerRuns]) {
+        drawMergedQuoteSpan(doc, run.cells, run.value, data.pageNumber);
       }
     },
   });
