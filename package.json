@@ -1,5 +1,6 @@
 {
   "name": "tanstack_start_ts",
+  "version": "1.0.0",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -16,9 +17,9 @@
     "build:electron:renderer": "vite build --mode electron",
     "build:electron:main": "tsc --project tsconfig.electron.json",
     "build:electron": "npm run build:electron:renderer && npm run build:electron:main",
-    "rebuild:native": "electron-builder install-app-deps",
+    "rebuild:native": "node -e \"console.log('classic-level uses its bundled N-API binary; no rebuild is required.')\"",
     "electron:dev": "concurrently --kill-others \"vite dev --host 127.0.0.1 --port 4173\" \"tsc --project tsconfig.electron.json --watch\" \"wait-on http://127.0.0.1:4173 dist-electron/main.js && cross-env TDA_ELECTRON_DEV_URL=http://127.0.0.1:4173 electron dist-electron/main.js\"",
-    "dist:win": "npm run build:electron && npm run rebuild:native && electron-builder --win nsis"
+    "dist:win": "npm run build:electron && electron-builder --win nsis"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

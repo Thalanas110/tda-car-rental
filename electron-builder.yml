@@ -1,5 +1,6 @@
 appId: com.tda.car-rental
 productName: TDA Car Rental
+npmRebuild: false
 directories:
   output: release
 files:
@@ -13,6 +14,7 @@ extraResources:
 asarUnpack:
   - node_modules/classic-level/**
 win:
+  signAndEditExecutable: false
   target:
     - target: nsis
       arch:
@@ -20,3 +22,4 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  packElevateHelper: false

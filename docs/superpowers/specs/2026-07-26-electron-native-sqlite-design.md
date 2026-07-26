@@ -73,6 +73,9 @@ process crash cannot be represented by a running app window.
 - `src/lib/db.ts` becomes an asynchronous client for this bridge, retaining
   its existing document-facing function signatures so editor/list components
   do not directly know about Electron or SQLite.
+- Chromium discovery uses `classic-level`'s bundled Windows x64 N-API binary.
+  Electron Builder unpacks that binary without rebuilding it, avoiding a local
+  C++/Python build-tool requirement for the installer.
 
 ## First-Launch Migration
 
