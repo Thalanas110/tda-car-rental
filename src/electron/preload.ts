@@ -12,4 +12,8 @@ contextBridge.exposeInMainWorld("tda", {
     scanChromium: () => ipcRenderer.invoke("migration:scan"),
     importFile: () => ipcRenderer.invoke("migration:import-file"),
   },
+  startup: {
+    retry: () => ipcRenderer.send("startup:retry"),
+    quit: () => ipcRenderer.send("startup:quit"),
+  },
 });

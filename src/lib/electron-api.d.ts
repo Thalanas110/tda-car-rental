@@ -20,6 +20,10 @@ export interface TdaElectronApi {
     scanChromium(): Promise<MigrationResult[]>;
     importFile(): Promise<MigrationResult>;
   };
+  startup: {
+    retry(): void;
+    quit(): void;
+  };
 }
 
 declare global {

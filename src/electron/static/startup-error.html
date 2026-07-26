@@ -7,8 +7,13 @@
   <body>
     <main>
       <h1>TDA Car Rental could not start</h1>
+      <p>The application is still unavailable after five minutes.</p>
       <button type="button" id="retry">Retry</button>
       <button type="button" id="quit">Quit</button>
     </main>
+    <script>
+      document.getElementById("retry").addEventListener("click", () => window.tda.startup.retry());
+      document.getElementById("quit").addEventListener("click", () => window.tda.startup.quit());
+    </script>
   </body>
 </html>
