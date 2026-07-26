@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 
 export type DocumentType = "billing" | "quotation";
 
@@ -30,6 +31,18 @@ const documentColumns = `
   items_json,
   created_at
 `;
+
+const legacyDocumentColumns = [
+  "doc_type",
+  "doc_date",
+  "billed_to",
+  "unit",
+  "driver",
+  "requestor",
+  "total",
+  "items_json",
+  "created_at",
+];
 
 export class DocumentDatabase {
   private readonly database: DatabaseSync;
@@ -99,6 +112,56 @@ export class DocumentDatabase {
 
   delete(id: number): void {
     this.database.prepare("DELETE FROM docs WHERE id = ?").run(id);
+  }
+
+  importLegacyFile(file: string): number {
+    const header = readFileSync(file).subarray(0, 16);
+    if (!header.equals(Buffer.from("SQLite format 3\0"))) {
+      throw new Error("Legacy import requires a SQLite database file.");
+    }
+
+    const legacy = new DatabaseSync(file, { readOnly: true });
+    try {
+      const legacyColumns = legacy.prepare("PRAGMA table_info(docs)").all() as Array<{ name: string }>;
+      const names = new Set(legacyColumns.map((column) => column.name));
+      if (!legacyColumns.length || legacyDocumentColumns.some((column) => !names.has(column))) {
+        throw new Error("Legacy database does not contain a compatible docs table.");
+      }
+
+      const documents = legacy.prepare(`SELECT ${legacyDocumentColumns.join(", ")} FROM docs ORDER BY id ASC`).all() as Array<
+        DocumentInput & { created_at: string }
+      >;
+      const insert = this.database.prepare(`
+        INSERT INTO docs (doc_type, doc_date, billed_to, unit, driver, requestor, total, items_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      let transactionStarted = false;
+      try {
+        this.database.exec("BEGIN IMMEDIATE");
+        transactionStarted = true;
+        for (const document of documents) {
+          insert.run(
+            document.doc_type,
+            document.doc_date,
+            document.billed_to,
+            document.unit,
+            document.driver,
+            document.requestor,
+            document.total,
+            document.items_json,
+            document.created_at,
+          );
+        }
+        this.database.exec("COMMIT");
+        transactionStarted = false;
+        return documents.length;
+      } catch (error) {
+        if (transactionStarted) this.database.exec("ROLLBACK");
+        throw error;
+      }
+    } finally {
+      legacy.close();
+    }
   }
 
   close(): void {

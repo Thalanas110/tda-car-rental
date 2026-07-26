@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Migrate TDA data</title>
+    <style>
+      body { background: #f8f5ef; color: #222; font-family: Arial, sans-serif; margin: 0; }
+      main { margin: 2rem auto; max-width: 36rem; padding: 0 1.5rem; }
+      button { margin: 0.4rem 0.4rem 0.4rem 0; padding: 0.55rem 0.8rem; }
+      #result { background: #fff; min-height: 5rem; padding: 1rem; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Migrate existing data</h1>
+      <p>Browser data is read only after you start a search. Your source data is never deleted.</p>
+      <button type="button" id="search">Search browser data</button>
+      <button type="button" id="import">Import backup file</button>
+      <button type="button" id="close">Close</button>
+      <pre id="result" aria-live="polite"></pre>
+    </main>
+    <script>
+      const result = document.getElementById("result");
+      const describe = (items) => items.map((item) => `${item.source}: ${item.message}`).join("\n");
+      document.getElementById("search").addEventListener("click", async () => {
+        result.textContent = "Searching supported browser profiles…";
+        result.textContent = describe(await window.tda.migration.scanChromium());
+      });
+      document.getElementById("import").addEventListener("click", async () => {
+        result.textContent = "Choose a legacy SQLite backup…";
+        const item = await window.tda.migration.importFile();
+        result.textContent = `${item.source}: ${item.message}`;
+      });
+      document.getElementById("close").addEventListener("click", () => window.close());
+    </script>
+  </body>
+</html>
