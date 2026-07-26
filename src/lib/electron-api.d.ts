@@ -1,0 +1,31 @@
+import type { DocRow } from "./db";
+
+export type DocumentInput = Omit<DocRow, "id" | "created_at">;
+
+export type MigrationResult = {
+  source: string;
+  importedCount: number;
+  message: string;
+};
+
+export interface TdaElectronApi {
+  documents: {
+    save(input: DocumentInput): Promise<number>;
+    get(id: number): Promise<DocRow | undefined>;
+    update(id: number, input: DocumentInput): Promise<void>;
+    list(): Promise<DocRow[]>;
+    delete(id: number): Promise<void>;
+  };
+  migration: {
+    scanChromium(): Promise<MigrationResult[]>;
+    importFile(): Promise<MigrationResult>;
+  };
+}
+
+declare global {
+  interface Window {
+    tda: TdaElectronApi;
+  }
+}
+
+export {};
