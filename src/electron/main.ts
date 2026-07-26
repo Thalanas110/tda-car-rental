@@ -1,6 +1,9 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DocumentDatabase } from "./main/document-database.js";
+import { registerIpcHandlers } from "./main/ipc.js";
+import { scanChromiumProfiles } from "./main/legacy-migration.js";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
@@ -29,7 +32,41 @@ async function createWindow() {
   } else {
     await window.loadFile(staticPath("loading.html"));
   }
+  return window;
 }
 
-app.whenReady().then(createWindow);
+async function createMigrationWindow(parent: BrowserWindow) {
+  const window = new BrowserWindow({
+    width: 680,
+    height: 520,
+    parent,
+    webPreferences: {
+      preload: join(currentDir, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  await window.loadFile(staticPath("migration.html"));
+}
+
+app.whenReady().then(async () => {
+  const database = new DocumentDatabase(join(app.getPath("userData"), "tda-car-rental.sqlite"));
+  registerIpcHandlers({
+    database,
+    dialog,
+    ipcMain,
+    localAppData: process.env.LOCALAPPDATA ?? app.getPath("userData"),
+    scanChromiumProfiles,
+  });
+  const mainWindow = await createWindow();
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: "Data",
+      submenu: [{ label: "Migrate legacy data…", click: () => void createMigrationWindow(mainWindow) }],
+    },
+  ]));
+  app.once("before-quit", () => database.close());
+});
+
 app.on("window-all-closed", () => app.quit());

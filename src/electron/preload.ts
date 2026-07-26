@@ -1,1 +1,15 @@
-export {};
+import { contextBridge, ipcRenderer } from "electron";
+
+contextBridge.exposeInMainWorld("tda", {
+  documents: {
+    save: (input: unknown) => ipcRenderer.invoke("documents:save", input),
+    get: (id: number) => ipcRenderer.invoke("documents:get", id),
+    update: (id: number, input: unknown) => ipcRenderer.invoke("documents:update", id, input),
+    list: () => ipcRenderer.invoke("documents:list"),
+    delete: (id: number) => ipcRenderer.invoke("documents:delete", id),
+  },
+  migration: {
+    scanChromium: () => ipcRenderer.invoke("migration:scan"),
+    importFile: () => ipcRenderer.invoke("migration:import-file"),
+  },
+});
