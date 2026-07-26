@@ -1,0 +1,22 @@
+appId: com.tda.car-rental
+productName: TDA Car Rental
+directories:
+  output: release
+files:
+  - dist-electron/**
+  - package.json
+extraResources:
+  - from: .output
+    to: app-server
+  - from: src/electron/static
+    to: electron-static
+asarUnpack:
+  - node_modules/classic-level/**
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

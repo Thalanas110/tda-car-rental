@@ -63,9 +63,9 @@ process crash cannot be represented by a running app window.
 
 - The main process stores a SQLite file at
   `app.getPath("userData")/tda-car-rental.sqlite`.
-- A native SQLite driver creates and migrates the `docs` table with the
-  existing document fields, line-item JSON, creation timestamp, and document
-  IDs.
+- Node's built-in `node:sqlite` `DatabaseSync` creates and migrates the `docs`
+  table with the existing document fields, line-item JSON, creation timestamp,
+  and document IDs. This avoids a separately compiled native SQLite addon.
 - Renderer access is limited to a typed context-bridge API for document CRUD,
   backup import, and migration actions.
 - `nodeIntegration` is disabled, `contextIsolation` is enabled, and only the

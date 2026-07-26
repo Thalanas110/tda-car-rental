@@ -3,6 +3,7 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -11,7 +12,13 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:electron:renderer": "vite build --mode electron",
+    "build:electron:main": "tsc --project tsconfig.electron.json",
+    "build:electron": "npm run build:electron:renderer && npm run build:electron:main",
+    "rebuild:native": "electron-builder install-app-deps",
+    "electron:dev": "concurrently --kill-others \"vite dev --host 127.0.0.1 --port 4173\" \"tsc --project tsconfig.electron.json --watch\" \"wait-on http://127.0.0.1:4173 dist-electron/main.js && cross-env TDA_ELECTRON_DEV_URL=http://127.0.0.1:4173 electron dist-electron/main.js\"",
+    "dist:win": "npm run build:electron && npm run rebuild:native && electron-builder --win nsis"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -47,6 +54,7 @@
     "@tanstack/react-start": "^1.168.26",
     "@tanstack/router-plugin": "^1.168.18",
     "class-variance-authority": "^0.7.1",
+    "classic-level": "^3.0.0",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
@@ -79,6 +87,10 @@
     "@types/react-dom": "^19.2.0",
     "@types/sql.js": "^1.4.11",
     "@vitejs/plugin-react": "^5.2.0",
+    "concurrently": "^10.0.4",
+    "cross-env": "^10.1.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -91,6 +103,7 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.16",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "wait-on": "^9.1.0"
   }
 }

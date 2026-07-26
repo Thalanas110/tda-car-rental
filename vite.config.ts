@@ -4,7 +4,7 @@ import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { configDefaults, defineConfig } from "vitest/config";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   resolve: {
     tsconfigPaths: true,
   },
@@ -12,7 +12,7 @@ export default defineConfig({
     tanstackStart({
       server: { entry: "server" },
     }),
-    nitro({ preset: "cloudflare-module" }),
+    nitro({ preset: mode === "electron" ? "node-server" : "cloudflare-module" }),
     viteReact(),
     tailwindcss(),
   ],
@@ -21,4 +21,4 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, "**/.worktrees/**"],
     setupFiles: "./src/test/setup.ts",
   },
-});
+}));
