@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { generatePdf } from "./pdf";
+import { generatePdf } from "@/lib/pdf";
 
 const input = {
   docType: "billing" as const,
