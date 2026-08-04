@@ -151,4 +151,75 @@ describe("OverlayCanvas", () => {
     expect(onUpdate.mock.calls[0][1].x).toBe(100);
     expect(onUpdate.mock.calls[0][1].y).toBeCloseTo(200 + (50 * 792) / 1040, 6);
   });
+
+  it("resizes text overlays freely from the bottom-right handle", () => {
+    const items: OverlayItem[] = [
+      { id: "1", type: "text", pageNumber: 0, x: 100, y: 200, width: 100, height: 20, content: "Resize me" },
+    ];
+    const onUpdate = vi.fn();
+
+    render(
+      <OverlayCanvas
+        items={items}
+        currentPage={0}
+        canvasWidth={800}
+        canvasHeight={1040}
+        viewportWidth={612}
+        viewportHeight={792}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+        onSurfaceClick={vi.fn()}
+      />,
+    );
+
+    const itemContainer = screen.getByText("Resize me").parentElement!;
+    fireEvent.pointerDown(itemContainer, { clientX: 100, clientY: 100, pointerId: 1 });
+
+    const handle = screen.getByLabelText("Resize bottom-right");
+    fireEvent.pointerDown(handle, { clientX: 200, clientY: 200, pointerId: 2 });
+    fireEvent.pointerMove(handle, { clientX: 250, clientY: 260, pointerId: 2 });
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      "1",
+      expect.objectContaining({
+        width: expect.any(Number),
+        height: expect.any(Number),
+      }),
+    );
+    expect(onUpdate.mock.calls.at(-1)?.[1].width).toBeGreaterThan(100);
+    expect(onUpdate.mock.calls.at(-1)?.[1].height).toBeGreaterThan(20);
+  });
+
+  it("keeps signature aspect ratio while resizing", () => {
+    const items: OverlayItem[] = [
+      { id: "sig-1", type: "signature", pageNumber: 0, x: 100, y: 200, width: 120, height: 80 },
+    ];
+    const onUpdate = vi.fn();
+
+    render(
+      <OverlayCanvas
+        items={items}
+        currentPage={0}
+        canvasWidth={800}
+        canvasHeight={1040}
+        viewportWidth={612}
+        viewportHeight={792}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+        onSurfaceClick={vi.fn()}
+        signatureDataUrl="data:image/png;base64,abc"
+      />,
+    );
+
+    const signature = screen.getByRole("img", { name: /signature/i }).parentElement!;
+    fireEvent.pointerDown(signature, { clientX: 100, clientY: 100, pointerId: 1 });
+
+    const handle = screen.getByLabelText("Resize bottom-right");
+    fireEvent.pointerDown(handle, { clientX: 200, clientY: 200, pointerId: 2 });
+    fireEvent.pointerMove(handle, { clientX: 260, clientY: 220, pointerId: 2 });
+
+    const patch = onUpdate.mock.calls.at(-1)?.[1];
+    expect(patch.width).toBeGreaterThan(120);
+    expect(patch.height).toBeCloseTo((patch.width * 80) / 120, 6);
+  });
 });
