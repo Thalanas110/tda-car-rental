@@ -21,7 +21,7 @@ afterEach(() => {
 describe("electronApi", () => {
   it("returns the context-isolated Electron bridge", async () => {
     Object.defineProperty(window, "tda", { configurable: true, value: bridge });
-    const modulePath = "./electron-api";
+    const modulePath = "@/lib/electron-api";
     const module = await import(modulePath).catch(() => undefined);
 
     expect(module?.electronApi).toBeTypeOf("function");
