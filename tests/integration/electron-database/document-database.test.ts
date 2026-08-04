@@ -49,7 +49,7 @@ function temporaryDatabaseFile() {
 }
 
 async function loadDatabaseModule() {
-  const modulePath = "./document-database";
+  const modulePath = "@/electron/main/document-database";
   const module = await import(modulePath).catch(() => undefined);
   expect(module?.DocumentDatabase).toBeTypeOf("function");
   return module as DatabaseModule | undefined;
