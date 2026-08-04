@@ -178,4 +178,24 @@ describe("PdfPreview", () => {
       (options as Record<string, unknown>).disableWorker === true,
     )).toBe(true);
   });
+
+  it("passes a cloned byte array into pdf.js so export can keep the original PDF bytes", async () => {
+    const mockPage = createMockPage();
+    const mockPdf = { numPages: 1, getPage: vi.fn().mockResolvedValue(mockPage) };
+    getDocument.mockReturnValue({ promise: Promise.resolve(mockPdf) });
+    const pdfBytes = new Uint8Array([37, 80, 68, 70]);
+
+    render(<PdfPreview pdfBytes={pdfBytes} onPageClick={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+    });
+
+    expect(getDocument.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        data: expect.any(Uint8Array),
+      }),
+    );
+    expect(getDocument.mock.calls[0][0].data).not.toBe(pdfBytes);
+  });
 });
