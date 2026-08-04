@@ -60,7 +60,7 @@ async function createWindow() {
     height: 860,
     show: false,
     webPreferences: {
-      preload: join(currentDir, "preload.js"),
+      preload: join(currentDir, "preload.cjs"),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -78,7 +78,7 @@ async function createMigrationWindow(parent: BrowserWindow) {
     height: 520,
     parent,
     webPreferences: {
-      preload: join(currentDir, "preload.js"),
+      preload: join(currentDir, "preload.cjs"),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,

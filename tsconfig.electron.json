@@ -10,6 +10,6 @@
     "outDir": "dist-electron",
     "rootDir": "src/electron"
   },
-  "include": ["src/electron/**/*.ts"],
+  "include": ["src/electron/**/*.ts", "src/electron/**/*.cts"],
   "exclude": ["src/electron/**/*.test.ts", "tests/**"]
 }

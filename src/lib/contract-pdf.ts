@@ -6,11 +6,15 @@ export async function exportContractPdf(input: ContractPdfInput): Promise<Uint8A
   const pages = pdfDoc.getPages();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  let signatureImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | undefined;
+  let signatureImage: Awaited<ReturnType<typeof pdfDoc.embedPng>> | Awaited<ReturnType<typeof pdfDoc.embedJpg>> | undefined;
   if (input.signatureDataUrl) {
     const base64 = input.signatureDataUrl.split(",")[1];
-    const pngBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-    signatureImage = await pdfDoc.embedPng(pngBytes);
+    const imageBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    if (input.signatureDataUrl.includes("image/jpeg")) {
+      signatureImage = await pdfDoc.embedJpg(imageBytes);
+    } else {
+      signatureImage = await pdfDoc.embedPng(imageBytes);
+    }
   }
 
   for (const overlay of input.overlays) {

@@ -64,6 +64,26 @@ describe("PdfPreview", () => {
     await waitFor(() => {
       expect(screen.getByRole("img", { hidden: true })).toBeInTheDocument();
     });
+    expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+  });
+
+  it("shows a loading state instead of an empty page counter before the PDF resolves", () => {
+    let resolvePdf: (value: { numPages: number; getPage: typeof vi.fn }) => void;
+    getDocument.mockReturnValue({
+      promise: new Promise((resolve) => {
+        resolvePdf = resolve;
+      }),
+    });
+
+    render(<PdfPreview pdfBytes={new Uint8Array()} onPageClick={vi.fn()} />);
+
+    expect(screen.getByText("Loading PDF...")).toBeInTheDocument();
+    expect(screen.queryByText(/Page 1 of 0/i)).not.toBeInTheDocument();
+
+    resolvePdf!({
+      numPages: 1,
+      getPage: vi.fn().mockResolvedValue(createMockPage()),
+    });
   });
 
   it("calls onPageClick with canvas coordinates when clicked", async () => {
@@ -118,5 +138,19 @@ describe("PdfPreview", () => {
     await waitFor(() => {
       expect(mockPdf.getPage).toHaveBeenCalledWith(1);
     });
+  });
+
+  it("uses a full-width preview surface so the page can scale beyond the default canvas size", async () => {
+    const mockPage = createMockPage();
+    const mockPdf = { numPages: 1, getPage: vi.fn().mockResolvedValue(mockPage) };
+    getDocument.mockReturnValue({ promise: Promise.resolve(mockPdf) });
+
+    render(<PdfPreview pdfBytes={new Uint8Array()} onPageClick={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("img", { hidden: true })).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId("pdf-preview-surface")).toHaveClass("w-full");
   });
 });

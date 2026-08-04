@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { generatePdf } from "@/lib/pdf";
-import { saveDoc, updateDoc, type DocType, type Item } from "@/lib/db";
+import { getDoc, saveDoc, updateDoc, type DocType, type Item } from "@/lib/db";
 import { DatePicker } from "@/components/ui/date-picker";
 import type { EditorInitial } from "@/lib/document-editor-data";
 
@@ -50,6 +51,7 @@ export function DocumentEditor({
   const [items, setItems] = useState<Item[]>(initialItems);
   const [samePassenger, setSamePassenger] = useState(rowsShare(initialItems, "passenger"));
   const [sameUnit, setSameUnit] = useState(rowsShare(initialItems, "unit"));
+  const [isSaving, setIsSaving] = useState(false);
 
   const total = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
   const setItem = (idx: number, patch: Partial<Item>) =>
@@ -106,27 +108,39 @@ export function DocumentEditor({
     pdf.save(`${docType}-${date.replace(/\s+/g, "_")}.pdf`);
   };
   const save = async () => {
-    const input = buildInput();
-    const draft = {
-      doc_type: docType,
-      doc_date: date,
-      billed_to: billedTo,
-      unit: input.unit,
-      driver,
-      requestor: input.requestor,
-      total,
-      items_json: JSON.stringify(input.items),
-    };
-    if (documentId === undefined) {
-      await saveDoc(draft);
-    } else {
-      await updateDoc(documentId, draft);
+    setIsSaving(true);
+    try {
+      const input = buildInput();
+      const draft = {
+        doc_type: docType,
+        doc_date: date,
+        billed_to: billedTo,
+        unit: input.unit,
+        driver,
+        requestor: input.requestor,
+        total,
+        items_json: JSON.stringify(input.items),
+      };
+      const savedId = documentId === undefined ? await saveDoc(draft) : documentId;
+      if (documentId !== undefined) {
+        await updateDoc(documentId, draft);
+      }
+      const savedDoc = await getDoc(savedId);
+      if (!savedDoc || savedDoc.doc_type !== docType) {
+        throw new Error("We couldn't confirm the document was saved to the desktop database.");
+      }
+      toast.success(`${docType === "billing" ? "Billing" : "Quotation"} saved.`);
+      onSaved?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Save failed. Please try again.";
+      toast.error(message);
+    } finally {
+      setIsSaving(false);
     }
-    onSaved?.();
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Date">
           <DatePicker
@@ -271,15 +285,15 @@ export function DocumentEditor({
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button onClick={() => void preview()} className="btn-primary">
+      <div className="sticky bottom-0 z-10 -mx-2 flex flex-wrap gap-2 border-t bg-background/95 px-2 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+        <button onClick={() => void preview()} className="btn-primary" disabled={isSaving}>
           Preview PDF
         </button>
-        <button onClick={() => void download()} className="btn-primary">
+        <button onClick={() => void download()} className="btn-primary" disabled={isSaving}>
           Download PDF
         </button>
-        <button onClick={save} className="btn-secondary">
-          Save
+        <button onClick={() => void save()} className="btn-secondary" disabled={isSaving}>
+          {isSaving ? "Saving..." : "Save"}
         </button>
       </div>
     </div>

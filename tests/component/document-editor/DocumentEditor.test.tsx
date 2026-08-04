@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Toaster } from "@/components/ui/sonner";
 
-const db = vi.hoisted(() => ({ saveDoc: vi.fn(), updateDoc: vi.fn() }));
+const db = vi.hoisted(() => ({ saveDoc: vi.fn(), updateDoc: vi.fn(), getDoc: vi.fn() }));
 const pdf = vi.hoisted(() => ({ generatePdf: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({ ...db }));
@@ -13,6 +14,18 @@ describe("DocumentEditor", () => {
   beforeEach(() => {
     db.saveDoc.mockReset().mockResolvedValue(8);
     db.updateDoc.mockReset().mockResolvedValue(undefined);
+    db.getDoc.mockReset().mockResolvedValue({
+      id: 8,
+      doc_type: "billing",
+      doc_date: "14 June 2026",
+      billed_to: "Path Foundation",
+      unit: "Sedan",
+      driver: "Teddy Dimate",
+      requestor: "",
+      total: 0,
+      items_json: "[]",
+      created_at: "2026-08-04 10:00:00",
+    });
     pdf.generatePdf.mockReset();
   });
 
@@ -49,6 +62,37 @@ describe("DocumentEditor", () => {
       );
     });
     expect(db.saveDoc).not.toHaveBeenCalled();
+  });
+
+  it("verifies a newly saved document exists before calling onSaved", async () => {
+    const onSaved = vi.fn();
+    render(<DocumentEditor docType="billing" onSaved={onSaved} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(db.saveDoc).toHaveBeenCalledTimes(1);
+      expect(db.getDoc).toHaveBeenCalledWith(8);
+      expect(onSaved).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("shows an error and stays on the page when persistence verification fails", async () => {
+    db.getDoc.mockResolvedValueOnce(undefined);
+    const onSaved = vi.fn();
+    render(
+      <>
+        <DocumentEditor docType="billing" onSaved={onSaved} />
+        <Toaster />
+      </>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn't confirm the document was saved/i)).toBeInTheDocument();
+    });
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it("picks the document date from the calendar in long format", async () => {
@@ -313,5 +357,16 @@ describe("DocumentEditor", () => {
 
     await waitFor(() => expect(db.saveDoc).toHaveBeenCalledTimes(1));
     expect(db.saveDoc.mock.calls[0][0]).toMatchObject({ doc_type: "quotation", unit: "" });
+  });
+
+  it("keeps the action buttons in a sticky footer for smaller desktop windows", () => {
+    render(<DocumentEditor docType="billing" />);
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    const actions = saveButton.parentElement;
+
+    expect(actions).not.toBeNull();
+    expect(actions).toHaveClass("sticky");
+    expect(actions).toHaveClass("bottom-0");
   });
 });

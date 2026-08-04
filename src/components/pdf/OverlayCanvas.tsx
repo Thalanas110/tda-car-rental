@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { X } from "lucide-react";
 import type { OverlayItem } from "@/lib/contract-pdf.types";
 import { pdfToCanvas } from "@/lib/contract-pdf-coordinate";
@@ -41,7 +41,7 @@ export function OverlayCanvas({
   const toCanvasCoords = (pdfX: number, pdfY: number) =>
     pdfToCanvas(pdfX, pdfY, viewport, canvasWidth, canvasHeight);
 
-  const handlePointerDown = (e: MouseEvent, item: OverlayItem) => {
+  const handlePointerDown = (e: ReactPointerEvent, item: OverlayItem) => {
     e.stopPropagation();
     setSelectedId(item.id);
     setDragState({
@@ -54,7 +54,7 @@ export function OverlayCanvas({
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
-  const handlePointerMove = (e: MouseEvent) => {
+  const handlePointerMove = (e: ReactPointerEvent) => {
     if (!dragState) return;
     const dx = (e.clientX - dragState.startX) * (viewportWidth / canvasWidth);
     const dy = (e.clientY - dragState.startY) * (viewportHeight / canvasHeight);

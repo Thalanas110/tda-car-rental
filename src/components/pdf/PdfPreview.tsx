@@ -1,11 +1,5 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import * as pdfjsLib from "pdfjs-dist";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
 
 type PageClickInfo = {
   x: number;
@@ -20,40 +14,61 @@ type PageClickInfo = {
 type PdfPreviewProps = {
   pdfBytes: Uint8Array;
   onPageClick: (info: PageClickInfo) => void;
+  onPageChange?: (pageNumber: number) => void;
+  children?: ReactNode;
 };
 
-export function PdfPreview({ pdfBytes, onPageClick }: PdfPreviewProps) {
+export function PdfPreview({ pdfBytes, onPageClick, onPageChange, children }: PdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const pdfRef = useRef<Awaited<ReturnType<typeof pdfjsLib.getDocument>> | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfRef = useRef<any>(null);
   const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
     let cancelled = false;
     const loadPdf = async () => {
-      const doc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
-      if (cancelled) return;
-      pdfRef.current = doc;
-      setTotalPages(doc.numPages);
-      setCurrentPage(0);
+      setStatus("loading");
+      setViewport(null);
+      setTotalPages(0);
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.min.mjs",
+          import.meta.url,
+        ).toString();
+        const doc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+        if (cancelled) return;
+        pdfRef.current = doc;
+        setTotalPages(doc.numPages);
+        setCurrentPage(0);
+        setStatus("ready");
+      } catch {
+        if (cancelled) return;
+        pdfRef.current = null;
+        setStatus("error");
+      }
     };
     loadPdf();
     return () => { cancelled = true; };
-  }, [pdfBytes]);
+  }, [pdfBytes, onPageChange]);
 
   useEffect(() => {
     let cancelled = false;
     const renderPage = async () => {
       const doc = pdfRef.current;
       const canvas = canvasRef.current;
-      if (!doc || !canvas) return;
+      const surface = surfaceRef.current;
+      if (!doc || !canvas || !surface || status !== "ready") return;
 
       const page = await doc.getPage(currentPage + 1);
       if (cancelled) return;
 
       const baseViewport = page.getViewport({ scale: 1 });
-      const maxWidth = canvas.parentElement?.clientWidth ?? 600;
+      const maxWidth = Math.max((surface.clientWidth || 0) - 32, 320);
       const scale = maxWidth / baseViewport.width;
       const vp = page.getViewport({ scale });
 
@@ -67,7 +82,7 @@ export function PdfPreview({ pdfBytes, onPageClick }: PdfPreviewProps) {
     };
     renderPage();
     return () => { cancelled = true; };
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, status]);
 
   const handleClick = (e: MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -89,30 +104,51 @@ export function PdfPreview({ pdfBytes, onPageClick }: PdfPreviewProps) {
       <div className="flex items-center justify-between">
         <button
           aria-label="Previous page"
-          onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+          onClick={() => setCurrentPage((p) => {
+            const next = Math.max(0, p - 1);
+            onPageChange?.(next);
+            return next;
+          })}
           disabled={currentPage === 0}
           className="btn-secondary disabled:opacity-50"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <span className="text-sm">
-          Page {currentPage + 1} of {totalPages}
+          {status === "loading"
+            ? "Loading PDF..."
+            : status === "error"
+              ? "Unable to load PDF"
+              : `Page ${currentPage + 1} of ${totalPages}`}
         </span>
         <button
           aria-label="Next page"
-          onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-          disabled={currentPage >= totalPages - 1}
+          onClick={() => setCurrentPage((p) => {
+            const next = Math.min(totalPages - 1, p + 1);
+            onPageChange?.(next);
+            return next;
+          })}
+          disabled={status !== "ready" || currentPage >= totalPages - 1}
           className="btn-secondary disabled:opacity-50"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-      <canvas
-        ref={canvasRef}
-        role="img"
-        onClick={handleClick}
-        className="border cursor-crosshair"
-      />
+      <div
+        ref={surfaceRef}
+        data-testid="pdf-preview-surface"
+        className="w-full overflow-auto rounded-lg border bg-muted/20 p-4"
+      >
+        <div className="relative mx-auto w-fit max-w-full">
+          <canvas
+            ref={canvasRef}
+            role="img"
+            onClick={handleClick}
+            className="block max-w-full cursor-crosshair border bg-white shadow-sm"
+          />
+          {children}
+        </div>
+      </div>
     </div>
   );
 }

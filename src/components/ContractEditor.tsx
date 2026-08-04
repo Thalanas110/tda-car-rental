@@ -2,16 +2,27 @@ import { useCallback, useState } from "react";
 import { Download, Type, Pen } from "lucide-react";
 import { PdfPreview } from "@/components/pdf/PdfPreview";
 import { OverlayCanvas } from "@/components/pdf/OverlayCanvas";
+import { SignatureModal } from "@/components/pdf/SignatureModal";
 import { exportContractPdf } from "@/lib/contract-pdf";
 import { canvasToPdf } from "@/lib/contract-pdf-coordinate";
 import type { OverlayItem } from "@/lib/contract-pdf.types";
 
-const signatureAssets = import.meta.glob("../../signature/*.{png,PNG}", {
+const signatureAssets = import.meta.glob("../../signature/*.{png,PNG,jpg,JPEG,jpeg}", {
   eager: true,
   import: "default",
   query: "?url",
 }) as Record<string, string>;
-const signatureUrl = Object.values(signatureAssets)[0];
+const defaultSignatureUrl = Object.values(signatureAssets)[0];
+
+async function toDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const ext = url.endsWith(".jpg") || url.endsWith(".jpeg") ? "jpeg" : "png";
+  return `data:image/${ext};base64,${btoa(binary)}`;
+}
 
 export function ContractEditor() {
   const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null);
@@ -25,6 +36,8 @@ export function ContractEditor() {
     canvasHeight: number;
   } | null>(null);
   const [fontSize, setFontSize] = useState(12);
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [activeSignatureUrl, setActiveSignatureUrl] = useState<string | null>(null);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,6 +46,15 @@ export function ContractEditor() {
     setPdfBytes(bytes);
     setOverlays([]);
     setCurrentPage(0);
+  }, []);
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  const handleSignatureConfirm = useCallback(async (dataUrl: string) => {
+    setActiveSignatureUrl(dataUrl);
+    setMode("signature");
   }, []);
 
   const handlePageClick = useCallback(
@@ -69,7 +91,7 @@ export function ContractEditor() {
         };
         setOverlays((prev) => [...prev, newItem]);
         setMode("select");
-      } else if (mode === "signature") {
+      } else if (mode === "signature" && activeSignatureUrl) {
         const newItem: OverlayItem = {
           id: crypto.randomUUID(),
           type: "signature",
@@ -83,7 +105,7 @@ export function ContractEditor() {
         setMode("select");
       }
     },
-    [mode, fontSize],
+    [mode, fontSize, activeSignatureUrl],
   );
 
   const handleUpdate = useCallback((id: string, patch: Partial<OverlayItem>) => {
@@ -96,18 +118,16 @@ export function ContractEditor() {
 
   const handleDownload = useCallback(async () => {
     if (!pdfBytes) return;
-    const signatureDataUrl = signatureUrl
-      ? await fetch(signatureUrl).then((r) => r.text())
-      : undefined;
+    const signatureDataUrl = activeSignatureUrl ?? (defaultSignatureUrl ? await toDataUrl(defaultSignatureUrl) : undefined);
     const result = await exportContractPdf({ pdfBytes, overlays, signatureDataUrl });
-    const blob = new Blob([result], { type: "application/pdf" });
+    const blob = new Blob([new Uint8Array(result)], { type: "application/pdf" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = "contract-signed.pdf";
     a.click();
     URL.revokeObjectURL(url);
-  }, [pdfBytes, overlays]);
+  }, [pdfBytes, overlays, activeSignatureUrl]);
 
   return (
     <div className="space-y-4">
@@ -124,7 +144,7 @@ export function ContractEditor() {
         </label>
       ) : (
         <>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setMode("select")}
               className={`btn-secondary ${mode === "select" ? "bg-accent" : ""}`}
@@ -138,7 +158,7 @@ export function ContractEditor() {
               <Type className="h-4 w-4 mr-1" /> Add Text
             </button>
             <button
-              onClick={() => setMode("signature")}
+              onClick={() => setSignatureModalOpen(true)}
               className={`btn-secondary ${mode === "signature" ? "bg-accent" : ""}`}
             >
               <Pen className="h-4 w-4 mr-1" /> Add Signature
@@ -159,8 +179,7 @@ export function ContractEditor() {
             </button>
           </div>
 
-          <div className="relative inline-block">
-            <PdfPreview pdfBytes={pdfBytes} onPageClick={handlePageClick} />
+          <PdfPreview pdfBytes={pdfBytes} onPageClick={handlePageClick} onPageChange={handlePageChange}>
             {pageInfo && (
               <OverlayCanvas
                 items={overlays}
@@ -171,10 +190,17 @@ export function ContractEditor() {
                 viewportHeight={pageInfo.viewportHeight}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
-                signatureDataUrl={signatureUrl}
+                signatureDataUrl={activeSignatureUrl ?? undefined}
               />
             )}
-          </div>
+          </PdfPreview>
+
+          <SignatureModal
+            open={signatureModalOpen}
+            onOpenChange={setSignatureModalOpen}
+            onConfirm={handleSignatureConfirm}
+            defaultSignatureUrl={defaultSignatureUrl}
+          />
         </>
       )}
     </div>
