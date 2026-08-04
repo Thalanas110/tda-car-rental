@@ -34,6 +34,8 @@ describe("ContractEditor", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+    // @ts-expect-error test cleanup
+    delete window.tda;
   });
 
   it("shows upload area initially", () => {
@@ -54,8 +56,28 @@ describe("ContractEditor", () => {
     });
   });
 
-  it("calls exportContractPdf when download is clicked", async () => {
+  it("exports through the desktop bridge when download is clicked", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(new Response(""));
+    window.tda = {
+      documents: {
+        save: vi.fn(),
+        get: vi.fn(),
+        update: vi.fn(),
+        list: vi.fn(),
+        delete: vi.fn(),
+      },
+      migration: {
+        scanChromium: vi.fn(),
+        importFile: vi.fn(),
+      },
+      startup: {
+        retry: vi.fn(),
+        quit: vi.fn(),
+      },
+      files: {
+        savePdf: vi.fn().mockResolvedValue({ canceled: false, filePath: "C:/tmp/contract-signed.pdf" }),
+      },
+    } as any;
 
     render(<ContractEditor />);
 
@@ -72,6 +94,46 @@ describe("ContractEditor", () => {
 
     await waitFor(() => {
       expect(exportContractPdf).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect((window.tda as any).files.savePdf).toHaveBeenCalledWith(
+        expect.objectContaining({
+          defaultFileName: expect.stringMatching(/^contract-signed/i),
+          bytes: expect.any(Uint8Array),
+        }),
+      );
+    });
+  });
+
+  it("allows placing text after a text overlay already exists", async () => {
+    render(<ContractEditor />);
+
+    const file = new File(["dummy"], "contract.pdf", { type: "application/pdf" });
+    const input = screen.getByLabelText(/upload/i);
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+
+    await waitFor(() => {
+      expect(screen.getByText(/add text/i)).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("overlay-surface")).toBeInTheDocument();
+    });
+    const surface = screen.getByTestId("overlay-surface");
+
+    fireEvent.click(screen.getByRole("button", { name: /add text/i }));
+    fireEvent.click(surface, { clientX: 120, clientY: 140 });
+
+    await waitFor(() => {
+      expect(document.querySelectorAll("[data-overlay-item='text']")).toHaveLength(1);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add text/i }));
+    fireEvent.click(surface, { clientX: 220, clientY: 240 });
+
+    await waitFor(() => {
+      expect(document.querySelectorAll("[data-overlay-item='text']")).toHaveLength(2);
     });
   });
 
