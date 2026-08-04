@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DocRow } from "./db";
-import { toEditorInitial } from "./document-editor-data";
+import type { DocRow } from "@/lib/db";
+import { toEditorInitial } from "@/lib/document-editor-data";
 
 const row: DocRow = {
   id: 7,
