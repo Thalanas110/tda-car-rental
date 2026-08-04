@@ -38,6 +38,18 @@ export function SignatureModal({ open, onOpenChange, onConfirm, defaultSignature
     }
   }, [open, defaultSignatureUrl]);
 
+  useEffect(() => {
+    if (open) return;
+
+    document.body.style.pointerEvents = "";
+    document.body.removeAttribute("data-scroll-locked");
+
+    return () => {
+      document.body.style.pointerEvents = "";
+      document.body.removeAttribute("data-scroll-locked");
+    };
+  }, [open]);
+
   const startDraw = (e: React.PointerEvent) => {
     if (activeTab !== "draw") return;
     const ctx = getCanvasCtx();
