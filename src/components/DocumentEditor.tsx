@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { generatePdf } from "@/lib/pdf";
 import { saveDoc, updateDoc, type DocType, type Item } from "@/lib/db";
+import { DatePicker } from "@/components/ui/date-picker";
 import type { EditorInitial } from "@/lib/document-editor-data";
 
 function todayLong(): string {
@@ -128,12 +129,22 @@ export function DocumentEditor({
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Date">
-          <input className="input" value={date} onChange={(e) => setDate(e.target.value)} placeholder="14 June 2026" />
+          <DatePicker
+            value={date}
+            onChange={setDate}
+            format="d MMMM yyyy"
+            ariaLabel="Document date"
+          />
         </Field>
         {docType === "billing" ? (
           <>
             <Field label="Billed To">
-              <input className="input" value={billedTo} onChange={(e) => setBilledTo(e.target.value)} placeholder="Path Foundation" />
+              <input
+                className="input"
+                value={billedTo}
+                onChange={(e) => setBilledTo(e.target.value)}
+                placeholder="Path Foundation"
+              />
             </Field>
             <Field label="Driver">
               <input className="input" value={driver} onChange={(e) => setDriver(e.target.value)} />
@@ -141,7 +152,12 @@ export function DocumentEditor({
           </>
         ) : (
           <Field label="Requestor">
-            <input className="input" value={requestor} onChange={(e) => setRequestor(e.target.value)} placeholder="Path Foundation" />
+            <input
+              className="input"
+              value={requestor}
+              onChange={(e) => setRequestor(e.target.value)}
+              placeholder="Path Foundation"
+            />
           </Field>
         )}
       </div>
@@ -152,16 +168,27 @@ export function DocumentEditor({
             <h2 className="font-semibold">Line Items</h2>
             <div className="flex items-center gap-3 text-sm">
               <label className="flex items-center gap-1.5">
-                <input type="checkbox" checked={samePassenger} onChange={(e) => setSameField("passenger", e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={samePassenger}
+                  onChange={(e) => setSameField("passenger", e.target.checked)}
+                />
                 Same passenger?
               </label>
               <label className="flex items-center gap-1.5">
-                <input type="checkbox" checked={sameUnit} onChange={(e) => setSameField("unit", e.target.checked)} />
+                <input
+                  type="checkbox"
+                  checked={sameUnit}
+                  onChange={(e) => setSameField("unit", e.target.checked)}
+                />
                 Same unit?
               </label>
             </div>
           </div>
-          <button onClick={addRow} className="text-sm px-3 py-1.5 rounded-md bg-secondary hover:bg-accent">
+          <button
+            onClick={addRow}
+            className="text-sm px-3 py-1.5 rounded-md bg-secondary hover:bg-accent"
+          >
             + Add row
           </button>
         </div>
@@ -180,7 +207,14 @@ export function DocumentEditor({
             <tbody>
               {items.map((it, i) => (
                 <tr key={i} className="border-t">
-                  <td className="p-1"><input className="input" value={it.date} onChange={(e) => setItem(i, { date: e.target.value })} placeholder="11-Jun-26" /></td>
+                  <td className="p-1">
+                    <DatePicker
+                      value={it.date}
+                      onChange={(v) => setItem(i, { date: v })}
+                      format="dd-MMM-yy"
+                      ariaLabel={`Item date ${i + 1}`}
+                    />
+                  </td>
                   <td className="p-1">
                     <input
                       aria-label={`Unit ${i + 1}`}
@@ -190,7 +224,13 @@ export function DocumentEditor({
                       onChange={(e) => setItem(i, { unit: e.target.value })}
                     />
                   </td>
-                  <td className="p-1"><textarea className="input min-h-[38px]" value={it.destination} onChange={(e) => setItem(i, { destination: e.target.value })} /></td>
+                  <td className="p-1">
+                    <textarea
+                      className="input min-h-[38px]"
+                      value={it.destination}
+                      onChange={(e) => setItem(i, { destination: e.target.value })}
+                    />
+                  </td>
                   <td className="p-1">
                     <input
                       aria-label={`Passenger ${i + 1}`}
@@ -200,9 +240,23 @@ export function DocumentEditor({
                       onChange={(e) => setItem(i, { passenger: e.target.value })}
                     />
                   </td>
-                  <td className="p-1"><input className="input text-right" type="number" step="0.01" value={it.amount} onChange={(e) => setItem(i, { amount: Number(e.target.value) })} /></td>
+                  <td className="p-1">
+                    <input
+                      className="input text-right"
+                      type="number"
+                      step="0.01"
+                      value={it.amount}
+                      onChange={(e) => setItem(i, { amount: Number(e.target.value) })}
+                    />
+                  </td>
                   <td className="p-1 text-center">
-                    <button onClick={() => removeRow(i)} className="text-destructive hover:opacity-70" title="Remove">×</button>
+                    <button
+                      onClick={() => removeRow(i)}
+                      className="text-destructive hover:opacity-70"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -211,14 +265,22 @@ export function DocumentEditor({
         </div>
         <div className="text-right text-sm">
           <span className="text-muted-foreground">Total: </span>
-          <span className="font-semibold">PHP {total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</span>
+          <span className="font-semibold">
+            PHP {total.toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+          </span>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => void preview()} className="btn-primary">Preview PDF</button>
-        <button onClick={() => void download()} className="btn-primary">Download PDF</button>
-        <button onClick={save} className="btn-secondary">Save</button>
+        <button onClick={() => void preview()} className="btn-primary">
+          Preview PDF
+        </button>
+        <button onClick={() => void download()} className="btn-primary">
+          Download PDF
+        </button>
+        <button onClick={save} className="btn-secondary">
+          Save
+        </button>
       </div>
     </div>
   );

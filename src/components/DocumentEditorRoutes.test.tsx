@@ -23,12 +23,18 @@ describe("document editor routes", () => {
     ["/billing/999/edit", "Update saved document"],
     ["/quotation/new", "New document"],
     ["/quotation/999/edit", "Update saved document"],
-  ])("renders the full-page editor at %s", async (path, marker) => {
-    window.history.pushState({}, "", path);
-    const router = getRouter();
+  ])(
+    "renders the full-page editor at %s",
+    async (path, marker) => {
+      window.history.pushState({}, "", path);
+      const router = getRouter();
 
-    render(<RouterProvider router={router} />);
+      render(<RouterProvider router={router} />);
 
-    expect(await screen.findByText(marker)).toBeInTheDocument();
-  });
+      // First route load lazily imports the editor dependencies (e.g. the date
+      // picker's calendar), which is slow in the jsdom environment.
+      expect(await screen.findByText(marker, {}, { timeout: 15000 })).toBeInTheDocument();
+    },
+    20000,
+  );
 });

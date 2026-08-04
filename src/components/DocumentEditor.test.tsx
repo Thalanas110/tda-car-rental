@@ -51,6 +51,63 @@ describe("DocumentEditor", () => {
     expect(db.saveDoc).not.toHaveBeenCalled();
   });
 
+  it("picks the document date from the calendar in long format", async () => {
+    render(
+      <DocumentEditor
+        docType="billing"
+        initial={{
+          date: "14 June 2026",
+          billedTo: "Path Foundation",
+          driver: "Teddy Dimate",
+          items: [],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Document date" }));
+    fireEvent.click(screen.getByRole("button", { name: /june 15/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(db.saveDoc).toHaveBeenCalledWith(
+        expect.objectContaining({ doc_date: "15 June 2026" }),
+      );
+    });
+  });
+
+  it("picks a line-item trip date from the calendar in short format", async () => {
+    render(
+      <DocumentEditor
+        docType="billing"
+        initial={{
+          billedTo: "Path Foundation",
+          driver: "Teddy Dimate",
+          items: [
+            {
+              date: "11-Jun-26",
+              destination: "Makati",
+              passenger: "A. Cruz",
+              unit: "Toyota HiAce",
+              amount: 1200,
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Item date 1" }));
+    fireEvent.click(screen.getByRole("button", { name: /june 12/i }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(db.saveDoc).toHaveBeenCalledTimes(1);
+    });
+    const saved = db.saveDoc.mock.calls[0][0];
+    expect(JSON.parse(saved.items_json)).toEqual([expect.objectContaining({ date: "12-Jun-26" })]);
+  });
+
   it("opens a preview tab before asynchronous PDF generation completes", async () => {
     let resolvePdf: (value: { output: (type: string) => string }) => void;
     pdf.generatePdf.mockReturnValueOnce(
@@ -80,8 +137,20 @@ describe("DocumentEditor", () => {
           billedTo: "Path Foundation",
           driver: "Teddy Dimate",
           items: [
-            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
-            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Mitsubishi L300", amount: 900 },
+            {
+              date: "11-Jun-26",
+              destination: "Makati",
+              passenger: "A. Cruz",
+              unit: "Toyota HiAce",
+              amount: 1200,
+            },
+            {
+              date: "12-Jun-26",
+              destination: "Subic",
+              passenger: "B. Reyes",
+              unit: "Mitsubishi L300",
+              amount: 900,
+            },
           ],
         }}
       />,
@@ -102,7 +171,10 @@ describe("DocumentEditor", () => {
     expect(screen.getByLabelText("Unit 2")).toBeDisabled();
     expect(screen.getByLabelText("Unit 3")).toHaveValue("Toyota Commuter");
     await waitFor(() => expect(db.saveDoc).toHaveBeenCalledTimes(1));
-    expect(db.saveDoc.mock.calls[0][0]).toMatchObject({ doc_type: "billing", unit: "Toyota Commuter" });
+    expect(db.saveDoc.mock.calls[0][0]).toMatchObject({
+      doc_type: "billing",
+      unit: "Toyota Commuter",
+    });
     expect(JSON.parse(db.saveDoc.mock.calls[0][0].items_json)).toEqual(
       expect.arrayContaining([expect.objectContaining({ unit: "Toyota Commuter" })]),
     );
@@ -116,8 +188,20 @@ describe("DocumentEditor", () => {
           date: "14 June 2026",
           requestor: "Path Foundation",
           items: [
-            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
-            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Mitsubishi L300", amount: 900 },
+            {
+              date: "11-Jun-26",
+              destination: "Makati",
+              passenger: "A. Cruz",
+              unit: "Toyota HiAce",
+              amount: 1200,
+            },
+            {
+              date: "12-Jun-26",
+              destination: "Subic",
+              passenger: "B. Reyes",
+              unit: "Mitsubishi L300",
+              amount: 900,
+            },
           ],
         }}
       />,
@@ -143,8 +227,20 @@ describe("DocumentEditor", () => {
         docType="quotation"
         initial={{
           items: [
-            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
-            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Mitsubishi L300", amount: 900 },
+            {
+              date: "11-Jun-26",
+              destination: "Makati",
+              passenger: "A. Cruz",
+              unit: "Toyota HiAce",
+              amount: 1200,
+            },
+            {
+              date: "12-Jun-26",
+              destination: "Subic",
+              passenger: "B. Reyes",
+              unit: "Mitsubishi L300",
+              amount: 900,
+            },
           ],
         }}
       />,
@@ -167,8 +263,20 @@ describe("DocumentEditor", () => {
         docType="quotation"
         initial={{
           items: [
-            { date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "Toyota HiAce", amount: 1200 },
-            { date: "12-Jun-26", destination: "Subic", passenger: "B. Reyes", unit: "Toyota HiAce", amount: 900 },
+            {
+              date: "11-Jun-26",
+              destination: "Makati",
+              passenger: "A. Cruz",
+              unit: "Toyota HiAce",
+              amount: 1200,
+            },
+            {
+              date: "12-Jun-26",
+              destination: "Subic",
+              passenger: "B. Reyes",
+              unit: "Toyota HiAce",
+              amount: 900,
+            },
           ],
         }}
       />,
@@ -177,7 +285,10 @@ describe("DocumentEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(db.saveDoc).toHaveBeenCalledTimes(1));
-    expect(db.saveDoc.mock.calls[0][0]).toMatchObject({ doc_type: "quotation", unit: "Toyota HiAce" });
+    expect(db.saveDoc.mock.calls[0][0]).toMatchObject({
+      doc_type: "quotation",
+      unit: "Toyota HiAce",
+    });
   });
 
   it("saves blank quotation units with an empty summary", async () => {
@@ -185,7 +296,15 @@ describe("DocumentEditor", () => {
       <DocumentEditor
         docType="quotation"
         initial={{
-          items: [{ date: "11-Jun-26", destination: "Makati", passenger: "A. Cruz", unit: "", amount: 1200 }],
+          items: [
+            {
+              date: "11-Jun-26",
+              destination: "Makati",
+              passenger: "A. Cruz",
+              unit: "",
+              amount: 1200,
+            },
+          ],
         }}
       />,
     );
