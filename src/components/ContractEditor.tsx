@@ -1,11 +1,13 @@
 import { useCallback, useRef, useState } from "react";
 import { Download, Type, Pen } from "lucide-react";
+import { toast } from "sonner";
 import { PdfPreview } from "@/components/pdf/PdfPreview";
 import { OverlayCanvas } from "@/components/pdf/OverlayCanvas";
 import { SignatureModal } from "@/components/pdf/SignatureModal";
 import { exportContractPdf } from "@/lib/contract-pdf";
 import { canvasToPdf } from "@/lib/contract-pdf-coordinate";
 import type { OverlayItem } from "@/lib/contract-pdf.types";
+import { electronApi } from "@/lib/electron-api";
 
 const signatureAssets = import.meta.glob("../../signature/*.{png,PNG}", {
   eager: true,
@@ -40,6 +42,7 @@ export function ContractEditor() {
   const [fontSize, setFontSize] = useState(12);
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [activeSignatureUrl, setActiveSignatureUrl] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   const modeRef = useRef<"select" | "text" | "signature">("select");
   const activeSignatureUrlRef = useRef<string | null>(null);
 
@@ -84,13 +87,6 @@ export function ContractEditor() {
       canvasWidth: number;
       canvasHeight: number;
     }) => {
-      setPageInfo({
-        viewportWidth: info.viewportWidth,
-        viewportHeight: info.viewportHeight,
-        canvasWidth: info.canvasWidth,
-        canvasHeight: info.canvasHeight,
-      });
-
       const viewport = { width: info.viewportWidth, height: info.viewportHeight };
       const pdfCoords = canvasToPdf(info.x, info.y, viewport, info.canvasWidth, info.canvasHeight);
 
@@ -125,6 +121,22 @@ export function ContractEditor() {
     [fontSize, updateMode],
   );
 
+  const handleViewportChange = useCallback((info: {
+    pageNumber: number;
+    viewportWidth: number;
+    viewportHeight: number;
+    canvasWidth: number;
+    canvasHeight: number;
+  }) => {
+    setCurrentPage(info.pageNumber);
+    setPageInfo({
+      viewportWidth: info.viewportWidth,
+      viewportHeight: info.viewportHeight,
+      canvasWidth: info.canvasWidth,
+      canvasHeight: info.canvasHeight,
+    });
+  }, []);
+
   const handleUpdate = useCallback((id: string, patch: Partial<OverlayItem>) => {
     setOverlays((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
   }, []);
@@ -135,15 +147,23 @@ export function ContractEditor() {
 
   const handleDownload = useCallback(async () => {
     if (!pdfBytes) return;
-    const signatureDataUrl = activeSignatureUrl ?? (defaultSignatureUrl ? await toDataUrl(defaultSignatureUrl) : undefined);
-    const result = await exportContractPdf({ pdfBytes, overlays, signatureDataUrl });
-    const blob = new Blob([new Uint8Array(result)], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "contract-signed.pdf";
-    a.click();
-    URL.revokeObjectURL(url);
+    setIsDownloading(true);
+    try {
+      const signatureDataUrl = activeSignatureUrl ?? (defaultSignatureUrl ? await toDataUrl(defaultSignatureUrl) : undefined);
+      const bytes = await exportContractPdf({ pdfBytes, overlays, signatureDataUrl });
+      const result = await electronApi().files.savePdf({
+        defaultFileName: "contract-signed.pdf",
+        bytes,
+      });
+      if (!result.canceled) {
+        toast.success("Contract PDF downloaded.");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Contract download failed. Please try again.";
+      toast.error(message);
+    } finally {
+      setIsDownloading(false);
+    }
   }, [pdfBytes, overlays, activeSignatureUrl]);
 
   return (
@@ -191,12 +211,17 @@ export function ContractEditor() {
                 className="w-16 input"
               />
             </label>
-            <button onClick={handleDownload} className="btn-primary ml-auto">
-              <Download className="h-4 w-4 mr-1" /> Download
+            <button onClick={() => void handleDownload()} className="btn-primary ml-auto" disabled={isDownloading}>
+              <Download className="h-4 w-4 mr-1" /> {isDownloading ? "Downloading..." : "Download"}
             </button>
           </div>
 
-          <PdfPreview pdfBytes={pdfBytes} onPageClick={handlePageClick} onPageChange={handlePageChange}>
+          <PdfPreview
+            pdfBytes={pdfBytes}
+            onPageClick={handlePageClick}
+            onPageChange={handlePageChange}
+            onViewportChange={handleViewportChange}
+          >
             {pageInfo && (
               <OverlayCanvas
                 items={overlays}
