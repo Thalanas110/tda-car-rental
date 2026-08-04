@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import type { Dialog } from "electron";
 import type { DocumentDatabase, DocumentInput, StoredDocument } from "./document-database.js";
 import type { MigrationResult } from "./legacy-migration.js";
@@ -9,6 +10,7 @@ type IpcMainPort = {
 };
 
 type DialogPort = Pick<Dialog, "showOpenDialog">;
+type SaveDialogPort = Pick<Dialog, "showSaveDialog">;
 
 type DocumentDatabasePort = Pick<DocumentDatabase, "save" | "get" | "update" | "list" | "delete" | "importLegacyFile">;
 
@@ -18,13 +20,14 @@ export const ipcChannels = [
   "documents:update",
   "documents:list",
   "documents:delete",
+  "files:save-pdf",
   "migration:scan",
   "migration:import-file",
 ] as const;
 
 export type IpcDependencies = {
   database: DocumentDatabasePort;
-  dialog: DialogPort;
+  dialog: DialogPort & SaveDialogPort;
   ipcMain: IpcMainPort;
   localAppData: string;
   scanChromiumProfiles(localAppData: string, database: DocumentDatabasePort): Promise<MigrationResult[]>;
@@ -54,12 +57,35 @@ function manualImportCancelled(): MigrationResult {
   return { source: "Manual backup", importedCount: 0, message: "No backup file was selected." };
 }
 
+function pdfSaveInput(value: unknown): { defaultFileName: string; bytes: Uint8Array } {
+  if (!value || typeof value !== "object") {
+    throw new Error("PDF save input is required.");
+  }
+  const input = value as Record<string, unknown>;
+  if (typeof input.defaultFileName !== "string" || !(input.bytes instanceof Uint8Array)) {
+    throw new Error("PDF save input is invalid.");
+  }
+  return { defaultFileName: input.defaultFileName, bytes: input.bytes };
+}
+
 export function registerIpcHandlers({ database, dialog, ipcMain, localAppData, scanChromiumProfiles }: IpcDependencies) {
   ipcMain.handle("documents:save", (_event, input) => database.save(documentInput(input)));
   ipcMain.handle("documents:get", (_event, id) => database.get(positiveInteger(id)) as StoredDocument | undefined);
   ipcMain.handle("documents:update", (_event, id, input) => database.update(positiveInteger(id), documentInput(input)));
   ipcMain.handle("documents:list", () => database.list());
   ipcMain.handle("documents:delete", (_event, id) => database.delete(positiveInteger(id)));
+  ipcMain.handle("files:save-pdf", async (_event, input) => {
+    const { defaultFileName, bytes } = pdfSaveInput(input);
+    const selection = await dialog.showSaveDialog({
+      defaultPath: defaultFileName,
+      filters: [{ name: "PDF document", extensions: ["pdf"] }],
+    });
+    if (selection.canceled || !selection.filePath) {
+      return { canceled: true };
+    }
+    await writeFile(selection.filePath, bytes);
+    return { canceled: false, filePath: selection.filePath };
+  });
   ipcMain.handle("migration:scan", () => scanChromiumProfiles(localAppData, database));
   ipcMain.handle("migration:import-file", async () => {
     const selection = await dialog.showOpenDialog({
