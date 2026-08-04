@@ -16,6 +16,9 @@ export interface TdaElectronApi {
     list(): Promise<DocRow[]>;
     delete(id: number): Promise<void>;
   };
+  files: {
+    savePdf(input: { defaultFileName: string; bytes: Uint8Array }): Promise<{ canceled: boolean; filePath?: string }>;
+  };
   migration: {
     scanChromium(): Promise<MigrationResult[]>;
     importFile(): Promise<MigrationResult>;
