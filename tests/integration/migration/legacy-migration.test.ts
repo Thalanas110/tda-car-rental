@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DocumentDatabase } from "./document-database";
+import { DocumentDatabase } from "@/electron/main/document-database";
 
 type ImportableDatabase = DocumentDatabase & {
   importLegacyFile(file: string): number;
@@ -84,7 +84,7 @@ describe("legacy migration", () => {
   });
 
   it("extracts only the legacy key's base64 SQLite payload from LevelDB entries", async () => {
-    const modulePath = "./legacy-migration";
+    const modulePath = "@/electron/main/legacy-migration";
     const module = await import(modulePath).catch(() => undefined);
 
     expect(module?.extractLegacyPayload).toBeTypeOf("function");
