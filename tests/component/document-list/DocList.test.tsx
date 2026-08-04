@@ -14,7 +14,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
 vi.mock("@/lib/db", () => ({ ...mocks }));
 vi.mock("@/lib/pdf", () => ({ generatePdf: vi.fn() }));
 
-import { DocList } from "./DocList";
+import { DocList } from "@/components/DocList";
 
 describe("DocList navigation", () => {
   beforeEach(() => {
