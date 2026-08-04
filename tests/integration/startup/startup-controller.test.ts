@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StartupController } from "./startup-controller.js";
+import { StartupController } from "@/electron/main/startup-controller.js";
 
 const flush = () => new Promise<void>((resolve) => queueMicrotask(resolve));
 
