@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Download, Type, Pen } from "lucide-react";
 import { PdfPreview } from "@/components/pdf/PdfPreview";
 import { OverlayCanvas } from "@/components/pdf/OverlayCanvas";
@@ -7,15 +7,17 @@ import { exportContractPdf } from "@/lib/contract-pdf";
 import { canvasToPdf } from "@/lib/contract-pdf-coordinate";
 import type { OverlayItem } from "@/lib/contract-pdf.types";
 
-const signatureAssets = import.meta.glob("../../signature/*.{png,PNG,jpg,JPEG,jpeg}", {
+const signatureAssets = import.meta.glob("../../signature/*.{png,PNG}", {
   eager: true,
   import: "default",
   query: "?url",
 }) as Record<string, string>;
-const defaultSignatureUrl = Object.values(signatureAssets)[0];
+const defaultSignatureUrl = Object.entries(signatureAssets).find(([path]) => path.toLowerCase().endsWith(".png"))?.[1];
 
 async function toDataUrl(url: string): Promise<string> {
-  const res = await fetch(url);
+  const resolvedUrl =
+    url.startsWith("data:") || /^[a-z]+:/i.test(url) ? url : new URL(url, window.location.href).toString();
+  const res = await fetch(resolvedUrl);
   const buf = await res.arrayBuffer();
   const bytes = new Uint8Array(buf);
   let binary = "";
@@ -38,6 +40,18 @@ export function ContractEditor() {
   const [fontSize, setFontSize] = useState(12);
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
   const [activeSignatureUrl, setActiveSignatureUrl] = useState<string | null>(null);
+  const modeRef = useRef<"select" | "text" | "signature">("select");
+  const activeSignatureUrlRef = useRef<string | null>(null);
+
+  const updateMode = useCallback((nextMode: "select" | "text" | "signature") => {
+    modeRef.current = nextMode;
+    setMode(nextMode);
+  }, []);
+
+  const updateActiveSignatureUrl = useCallback((nextSignatureUrl: string | null) => {
+    activeSignatureUrlRef.current = nextSignatureUrl;
+    setActiveSignatureUrl(nextSignatureUrl);
+  }, []);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,9 +67,12 @@ export function ContractEditor() {
   }, []);
 
   const handleSignatureConfirm = useCallback(async (dataUrl: string) => {
-    setActiveSignatureUrl(dataUrl);
-    setMode("signature");
-  }, []);
+    const normalizedSignatureUrl = dataUrl.startsWith("data:image/")
+      ? dataUrl
+      : await toDataUrl(dataUrl);
+    updateActiveSignatureUrl(normalizedSignatureUrl);
+    updateMode("signature");
+  }, [updateActiveSignatureUrl, updateMode]);
 
   const handlePageClick = useCallback(
     (info: {
@@ -77,7 +94,7 @@ export function ContractEditor() {
       const viewport = { width: info.viewportWidth, height: info.viewportHeight };
       const pdfCoords = canvasToPdf(info.x, info.y, viewport, info.canvasWidth, info.canvasHeight);
 
-      if (mode === "text") {
+      if (modeRef.current === "text") {
         const newItem: OverlayItem = {
           id: crypto.randomUUID(),
           type: "text",
@@ -90,8 +107,8 @@ export function ContractEditor() {
           fontSize,
         };
         setOverlays((prev) => [...prev, newItem]);
-        setMode("select");
-      } else if (mode === "signature" && activeSignatureUrl) {
+        updateMode("select");
+      } else if (modeRef.current === "signature" && activeSignatureUrlRef.current) {
         const newItem: OverlayItem = {
           id: crypto.randomUUID(),
           type: "signature",
@@ -102,10 +119,10 @@ export function ContractEditor() {
           height: 80,
         };
         setOverlays((prev) => [...prev, newItem]);
-        setMode("select");
+        updateMode("select");
       }
     },
-    [mode, fontSize, activeSignatureUrl],
+    [fontSize, updateMode],
   );
 
   const handleUpdate = useCallback((id: string, patch: Partial<OverlayItem>) => {
@@ -146,13 +163,13 @@ export function ContractEditor() {
         <>
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => setMode("select")}
+              onClick={() => updateMode("select")}
               className={`btn-secondary ${mode === "select" ? "bg-accent" : ""}`}
             >
               Select
             </button>
             <button
-              onClick={() => setMode("text")}
+              onClick={() => updateMode("text")}
               className={`btn-secondary ${mode === "text" ? "bg-accent" : ""}`}
             >
               <Type className="h-4 w-4 mr-1" /> Add Text
@@ -190,6 +207,7 @@ export function ContractEditor() {
                 viewportHeight={pageInfo.viewportHeight}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
+                onSurfaceClick={handlePageClick}
                 signatureDataUrl={activeSignatureUrl ?? undefined}
               />
             )}

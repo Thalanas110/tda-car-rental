@@ -153,4 +153,29 @@ describe("PdfPreview", () => {
 
     expect(screen.getByTestId("pdf-preview-surface")).toHaveClass("w-full");
   });
+
+  it("retries without a worker when the initial pdf.js load fails", async () => {
+    const mockPage = createMockPage();
+    const mockPdf = { numPages: 1, getPage: vi.fn().mockResolvedValue(mockPage) };
+
+    getDocument
+      .mockReturnValueOnce({ promise: Promise.reject(new Error("Worker transport failed")) })
+      .mockReturnValueOnce({ promise: Promise.resolve(mockPdf) });
+
+    render(<PdfPreview pdfBytes={new Uint8Array([1, 2, 3])} onPageClick={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+    });
+
+    expect(getDocument).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.any(Uint8Array),
+    }));
+    expect(getDocument.mock.calls.some(([options]) =>
+      options &&
+      typeof options === "object" &&
+      "disableWorker" in (options as Record<string, unknown>) &&
+      (options as Record<string, unknown>).disableWorker === true,
+    )).toBe(true);
+  });
 });

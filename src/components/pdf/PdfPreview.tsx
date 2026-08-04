@@ -40,7 +40,12 @@ export function PdfPreview({ pdfBytes, onPageClick, onPageChange, children }: Pd
           "pdfjs-dist/build/pdf.worker.min.mjs",
           import.meta.url,
         ).toString();
-        const doc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+        let doc;
+        try {
+          doc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+        } catch {
+          doc = await pdfjsLib.getDocument({ data: pdfBytes, disableWorker: true }).promise;
+        }
         if (cancelled) return;
         pdfRef.current = doc;
         setTotalPages(doc.numPages);

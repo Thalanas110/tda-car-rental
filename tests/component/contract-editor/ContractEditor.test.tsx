@@ -21,6 +21,15 @@ vi.mock("@/lib/contract-pdf", () => ({
 import { ContractEditor } from "@/components/ContractEditor";
 import { exportContractPdf } from "@/lib/contract-pdf";
 
+function getPdfCanvas() {
+  const surface = screen.getByTestId("pdf-preview-surface");
+  const canvas = surface.querySelector("canvas");
+  if (!canvas) {
+    throw new Error("Expected PDF canvas to be rendered");
+  }
+  return canvas;
+}
+
 describe("ContractEditor", () => {
   afterEach(() => {
     cleanup();
@@ -63,6 +72,52 @@ describe("ContractEditor", () => {
 
     await waitFor(() => {
       expect(exportContractPdf).toHaveBeenCalled();
+    });
+  });
+
+  it("allows placing another signature after one is already on the page", async () => {
+    vi.spyOn(global, "fetch").mockImplementation(async () =>
+      new Response(new Uint8Array([137, 80, 78, 71]), {
+        headers: { "Content-Type": "image/png" },
+      }),
+    );
+
+    render(<ContractEditor />);
+
+    const file = new File(["dummy"], "contract.pdf", { type: "application/pdf" });
+    const input = screen.getByLabelText(/upload/i);
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+
+    await waitFor(() => {
+      expect(screen.getByText(/add signature/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /add signature/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /use signature/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /use signature/i })).not.toBeInTheDocument();
+    });
+    const canvas = getPdfCanvas();
+    fireEvent.click(canvas, { clientX: 120, clientY: 140 });
+
+    await waitFor(() => {
+      expect(screen.getAllByAltText("Signature")).toHaveLength(1);
+    });
+    expect(screen.getAllByAltText("Signature")[0]).toHaveAttribute(
+      "src",
+      expect.stringMatching(/^data:image\//),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /add signature/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /use signature/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /use signature/i })).not.toBeInTheDocument();
+    });
+    fireEvent.click(canvas, { clientX: 220, clientY: 240 });
+
+    await waitFor(() => {
+      expect(screen.getAllByAltText("Signature")).toHaveLength(2);
     });
   });
 });

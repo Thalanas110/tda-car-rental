@@ -5,7 +5,7 @@ import { Upload, Trash2 } from "lucide-react";
 type SignatureModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (dataUrl: string) => void;
+  onConfirm: (dataUrl: string) => void | Promise<void>;
   defaultSignatureUrl?: string;
 };
 
@@ -15,6 +15,7 @@ export function SignatureModal({ open, onOpenChange, onConfirm, defaultSignature
   const [hasDrawn, setHasDrawn] = useState(false);
   const [activeTab, setActiveTab] = useState<"draw" | "upload" | "default">("draw");
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getCanvasCtx = useCallback(() => {
@@ -26,6 +27,7 @@ export function SignatureModal({ open, onOpenChange, onConfirm, defaultSignature
       setHasDrawn(false);
       setActiveTab(defaultSignatureUrl ? "default" : "draw");
       setUploadPreview(null);
+      setIsConfirming(false);
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext("2d");
@@ -81,17 +83,25 @@ export function SignatureModal({ open, onOpenChange, onConfirm, defaultSignature
     reader.readAsDataURL(file);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    let signatureValue: string | null = null;
     if (activeTab === "draw") {
       const canvas = canvasRef.current;
       if (!canvas || !hasDrawn) return;
-      onConfirm(canvas.toDataURL("image/png"));
+      signatureValue = canvas.toDataURL("image/png");
     } else if (activeTab === "upload" && uploadPreview) {
-      onConfirm(uploadPreview);
+      signatureValue = uploadPreview;
     } else if (activeTab === "default" && defaultSignatureUrl) {
-      onConfirm(defaultSignatureUrl);
+      signatureValue = defaultSignatureUrl;
     }
-    onOpenChange(false);
+    if (!signatureValue) return;
+    setIsConfirming(true);
+    try {
+      await onConfirm(signatureValue);
+      onOpenChange(false);
+    } finally {
+      setIsConfirming(false);
+    }
   };
 
   const canConfirm =
@@ -206,11 +216,11 @@ export function SignatureModal({ open, onOpenChange, onConfirm, defaultSignature
         </div>
 
         <DialogFooter>
-          <button onClick={() => onOpenChange(false)} className="btn-secondary">
+          <button onClick={() => onOpenChange(false)} className="btn-secondary" disabled={isConfirming}>
             Cancel
           </button>
-          <button onClick={handleConfirm} disabled={!canConfirm} className="btn-primary disabled:opacity-50">
-            Use Signature
+          <button onClick={() => void handleConfirm()} disabled={!canConfirm || isConfirming} className="btn-primary disabled:opacity-50">
+            {isConfirming ? "Preparing..." : "Use Signature"}
           </button>
         </DialogFooter>
       </DialogContent>

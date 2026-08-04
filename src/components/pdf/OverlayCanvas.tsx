@@ -1,4 +1,4 @@
-import { useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { X } from "lucide-react";
 import type { OverlayItem } from "@/lib/contract-pdf.types";
 import { pdfToCanvas } from "@/lib/contract-pdf-coordinate";
@@ -12,6 +12,15 @@ type OverlayCanvasProps = {
   viewportHeight: number;
   onUpdate: (id: string, patch: Partial<OverlayItem>) => void;
   onDelete: (id: string) => void;
+  onSurfaceClick: (info: {
+    x: number;
+    y: number;
+    pageNumber: number;
+    viewportWidth: number;
+    viewportHeight: number;
+    canvasWidth: number;
+    canvasHeight: number;
+  }) => void;
   signatureDataUrl?: string;
 };
 
@@ -24,6 +33,7 @@ export function OverlayCanvas({
   viewportHeight,
   onUpdate,
   onDelete,
+  onSurfaceClick,
   signatureDataUrl,
 }: OverlayCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -60,7 +70,7 @@ export function OverlayCanvas({
     const dy = (e.clientY - dragState.startY) * (viewportHeight / canvasHeight);
     onUpdate(dragState.id, {
       x: dragState.itemX + dx,
-      y: dragState.itemY - dy,
+      y: dragState.itemY + dy,
     });
   };
 
@@ -68,11 +78,27 @@ export function OverlayCanvas({
     setDragState(null);
   };
 
+  const handleSurfaceClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+    setSelectedId(null);
+    if (e.target !== e.currentTarget) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    onSurfaceClick({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+      pageNumber: currentPage,
+      viewportWidth,
+      viewportHeight,
+      canvasWidth,
+      canvasHeight,
+    });
+  };
+
   return (
     <div
       className="absolute inset-0"
       style={{ width: canvasWidth, height: canvasHeight }}
-      onClick={() => setSelectedId(null)}
+      onClick={handleSurfaceClick}
     >
       {pageItems.map((item) => {
         const pos = toCanvasCoords(item.x, item.y);

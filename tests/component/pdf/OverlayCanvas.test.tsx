@@ -121,4 +121,34 @@ describe("OverlayCanvas", () => {
 
     expect(onDelete).toHaveBeenCalledWith("1");
   });
+
+  it("moves overlays in the same vertical direction as the drag", () => {
+    const items: OverlayItem[] = [
+      { id: "1", type: "text", pageNumber: 0, x: 100, y: 200, width: 100, height: 20, content: "Drag me" },
+    ];
+    const onUpdate = vi.fn();
+
+    render(
+      <OverlayCanvas
+        items={items}
+        currentPage={0}
+        canvasWidth={800}
+        canvasHeight={1040}
+        viewportWidth={612}
+        viewportHeight={792}
+        onUpdate={onUpdate}
+        onDelete={vi.fn()}
+        onSurfaceClick={vi.fn()}
+      />,
+    );
+
+    const itemContainer = screen.getByText("Drag me").parentElement!;
+    fireEvent.pointerDown(itemContainer, { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(itemContainer, { clientX: 100, clientY: 150, pointerId: 1 });
+
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+    expect(onUpdate.mock.calls[0][0]).toBe("1");
+    expect(onUpdate.mock.calls[0][1].x).toBe(100);
+    expect(onUpdate.mock.calls[0][1].y).toBeCloseTo(200 + (50 * 792) / 1040, 6);
+  });
 });
