@@ -7,7 +7,7 @@ const pdf = vi.hoisted(() => ({ generatePdf: vi.fn() }));
 vi.mock("@/lib/db", () => ({ ...db }));
 vi.mock("@/lib/pdf", () => ({ ...pdf }));
 
-import { DocumentEditor } from "./DocumentEditor";
+import { DocumentEditor } from "@/components/DocumentEditor";
 
 describe("DocumentEditor", () => {
   beforeEach(() => {
