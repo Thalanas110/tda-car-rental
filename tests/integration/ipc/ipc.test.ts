@@ -16,7 +16,7 @@ const documentInput = {
 
 describe("registerIpcHandlers", () => {
   it("registers only document and migration handlers", async () => {
-    const modulePath = "./ipc";
+    const modulePath = "@/electron/main/ipc";
     const module = await import(modulePath).catch(() => undefined);
 
     expect(module?.registerIpcHandlers).toBeTypeOf("function");
