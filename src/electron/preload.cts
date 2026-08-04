@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld("tda", {
     list: () => ipcRenderer.invoke("documents:list"),
     delete: (id: number) => ipcRenderer.invoke("documents:delete", id),
   },
+  files: {
+    savePdf: (input: unknown) => ipcRenderer.invoke("files:save-pdf", input),
+  },
   migration: {
     scanChromium: () => ipcRenderer.invoke("migration:scan"),
     importFile: () => ipcRenderer.invoke("migration:import-file"),
