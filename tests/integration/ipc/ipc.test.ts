@@ -15,7 +15,7 @@ const documentInput = {
 };
 
 describe("registerIpcHandlers", () => {
-  it("registers only document and migration handlers", async () => {
+  it("registers document, file, and migration handlers", async () => {
     const modulePath = "@/electron/main/ipc";
     const module = await import(modulePath).catch(() => undefined);
 
@@ -32,7 +32,10 @@ describe("registerIpcHandlers", () => {
       importLegacyFile: vi.fn(() => 2),
     };
     const scanChromiumProfiles = vi.fn(async () => [{ source: "Chrome", importedCount: 1, message: "Imported 1 document(s)." }]);
-    const dialog = { showOpenDialog: vi.fn(async () => ({ canceled: true, filePaths: [] })) };
+    const dialog = {
+      showOpenDialog: vi.fn(async () => ({ canceled: true, filePaths: [] })),
+      showSaveDialog: vi.fn(async () => ({ canceled: true, filePath: undefined })),
+    };
 
     module.registerIpcHandlers({
       database,
@@ -48,6 +51,7 @@ describe("registerIpcHandlers", () => {
       "documents:update",
       "documents:list",
       "documents:delete",
+      "files:save-pdf",
       "migration:scan",
       "migration:import-file",
     ]);
@@ -55,6 +59,9 @@ describe("registerIpcHandlers", () => {
     expect(database.save).toHaveBeenCalledWith(documentInput);
     await handlers.get("migration:scan")?.({});
     expect(scanChromiumProfiles).toHaveBeenCalledWith("C:/Users/Example/AppData/Local", database);
+    await expect(
+      handlers.get("files:save-pdf")?.({}, { defaultFileName: "contract-signed.pdf", bytes: new Uint8Array([1, 2, 3]) }),
+    ).resolves.toEqual({ canceled: true });
     await expect(handlers.get("migration:import-file")?.({})).resolves.toMatchObject({ importedCount: 0 });
     expect(database.importLegacyFile).not.toHaveBeenCalled();
   });
