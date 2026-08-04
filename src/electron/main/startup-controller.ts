@@ -53,11 +53,7 @@ export class StartupController {
     }
     if (!this.isPolling(run)) return;
 
-    try {
-      this.server = this.dependencies.startServer();
-    } catch {
-      // Startup failures are retried until the five-minute deadline.
-    }
+    this.ensureServer();
     this.deadlineTimer = this.clock.setTimeout(() => void this.timeout(run), this.timeoutMs);
     void this.poll(run);
   }
@@ -75,6 +71,15 @@ export class StartupController {
 
   private isPolling(run: number): boolean {
     return this.run === run && this.state === "polling";
+  }
+
+  private ensureServer(): void {
+    if (this.server) return;
+    try {
+      this.server = this.dependencies.startServer();
+    } catch {
+      // Startup failures are retried until the five-minute deadline.
+    }
   }
 
   private async poll(run: number): Promise<void> {
@@ -103,7 +108,10 @@ export class StartupController {
       }
     }
     if (!this.isPolling(run)) return;
-    this.retryTimer = this.clock.setTimeout(() => void this.poll(run), this.retryIntervalMs);
+    this.retryTimer = this.clock.setTimeout(() => {
+      this.ensureServer();
+      void this.poll(run);
+    }, this.retryIntervalMs);
   }
 
   private async timeout(run: number): Promise<void> {

@@ -91,4 +91,25 @@ describe("StartupController", () => {
     await flush();
     expect(showLoading).toHaveBeenCalledTimes(2);
   });
+
+  it("restarts the local server after a controlled spawn failure", async () => {
+    vi.useFakeTimers();
+    const startServer = vi
+      .fn()
+      .mockImplementationOnce(() => { throw new Error("spawn failed"); })
+      .mockImplementationOnce(() => ({ kill: vi.fn() }));
+    const controller = new StartupController({
+      startServer,
+      isReachable: vi.fn().mockResolvedValue(false),
+      loadApplication: vi.fn(),
+      showLoading: vi.fn(),
+      showTimeout: vi.fn(),
+    });
+
+    await controller.start();
+    expect(startServer).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(startServer).toHaveBeenCalledTimes(2);
+  });
 });
