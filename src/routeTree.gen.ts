@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BillingRouteImport } from './routes/billing'
+import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as QuotationRouteImport } from './routes/quotation'
 import { Route as BillingNewRouteImport } from './routes/billing_.new'
 import { Route as QuotationNewRouteImport } from './routes/quotation_.new'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const BillingRoute = BillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContractsRoute = ContractsRouteImport.update({
+  id: '/contracts',
+  path: '/contracts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QuotationRoute = QuotationRouteImport.update({
@@ -56,6 +62,7 @@ const QuotationIdEditRoute = QuotationIdEditRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
+  '/contracts': typeof ContractsRoute
   '/quotation': typeof QuotationRoute
   '/billing/new': typeof BillingNewRoute
   '/quotation/new': typeof QuotationNewRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
+  '/contracts': typeof ContractsRoute
   '/quotation': typeof QuotationRoute
   '/billing/new': typeof BillingNewRoute
   '/quotation/new': typeof QuotationNewRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/billing': typeof BillingRoute
+  '/contracts': typeof ContractsRoute
   '/quotation': typeof QuotationRoute
   '/billing_/new': typeof BillingNewRoute
   '/quotation_/new': typeof QuotationNewRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/billing'
+    | '/contracts'
     | '/quotation'
     | '/billing/new'
     | '/quotation/new'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/billing'
+    | '/contracts'
     | '/quotation'
     | '/billing/new'
     | '/quotation/new'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/billing'
+    | '/contracts'
     | '/quotation'
     | '/billing_/new'
     | '/quotation_/new'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BillingRoute: typeof BillingRoute
+  ContractsRoute: typeof ContractsRoute
   QuotationRoute: typeof QuotationRoute
   BillingNewRoute: typeof BillingNewRoute
   QuotationNewRoute: typeof QuotationNewRoute
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/billing'
       preLoaderRoute: typeof BillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contracts': {
+      id: '/contracts'
+      path: '/contracts'
+      fullPath: '/contracts'
+      preLoaderRoute: typeof ContractsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/quotation': {
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BillingRoute: BillingRoute,
+  ContractsRoute: ContractsRoute,
   QuotationRoute: QuotationRoute,
   BillingNewRoute: BillingNewRoute,
   QuotationNewRoute: QuotationNewRoute,

@@ -1,11 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, FileText, FileSpreadsheet } from "lucide-react";
+import { LayoutDashboard, FileText, FileSpreadsheet, FileSignature } from "lucide-react";
 import type { ReactNode as RN } from "react";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/billing", label: "Billing", icon: FileText },
   { to: "/quotation", label: "Quotation", icon: FileSpreadsheet },
+  { to: "/contracts", label: "Contracts", icon: FileSignature },
 ] as const;
 
 export function AppLayout({ children, title }: { children: RN; title: string }) {
