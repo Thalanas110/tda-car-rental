@@ -15,10 +15,11 @@ type PdfPreviewProps = {
   pdfBytes: Uint8Array;
   onPageClick: (info: PageClickInfo) => void;
   onPageChange?: (pageNumber: number) => void;
+  onViewportChange?: (info: Omit<PageClickInfo, "x" | "y">) => void;
   children?: ReactNode;
 };
 
-export function PdfPreview({ pdfBytes, onPageClick, onPageChange, children }: PdfPreviewProps) {
+export function PdfPreview({ pdfBytes, onPageClick, onPageChange, onViewportChange, children }: PdfPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -42,9 +43,9 @@ export function PdfPreview({ pdfBytes, onPageClick, onPageChange, children }: Pd
         ).toString();
         let doc;
         try {
-          doc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+          doc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
         } catch {
-          doc = await pdfjsLib.getDocument({ data: pdfBytes, disableWorker: true }).promise;
+          doc = await pdfjsLib.getDocument({ data: pdfBytes.slice(), disableWorker: true }).promise;
         }
         if (cancelled) return;
         pdfRef.current = doc;
@@ -80,6 +81,13 @@ export function PdfPreview({ pdfBytes, onPageClick, onPageChange, children }: Pd
       canvas.width = vp.width;
       canvas.height = vp.height;
       setViewport({ width: baseViewport.width, height: baseViewport.height });
+      onViewportChange?.({
+        pageNumber: currentPage,
+        viewportWidth: baseViewport.width,
+        viewportHeight: baseViewport.height,
+        canvasWidth: vp.width,
+        canvasHeight: vp.height,
+      });
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
@@ -87,7 +95,7 @@ export function PdfPreview({ pdfBytes, onPageClick, onPageChange, children }: Pd
     };
     renderPage();
     return () => { cancelled = true; };
-  }, [currentPage, totalPages, status]);
+  }, [currentPage, totalPages, status, onViewportChange]);
 
   const handleClick = (e: MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
