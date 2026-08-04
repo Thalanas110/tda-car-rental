@@ -12,8 +12,8 @@ const nav = [
 export function AppLayout({ children, title }: { children: RN; title: string }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
-      <aside className="w-56 shrink-0 border-r bg-sidebar text-sidebar-foreground flex flex-col">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      <aside className="flex h-screen w-56 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
         <div className="px-5 py-5 border-b">
           <div className="font-bold text-sm leading-tight">TDA Car Rental</div>
           <div className="text-[11px] text-muted-foreground">Billing & Quotation</div>
@@ -39,11 +39,11 @@ export function AppLayout({ children, title }: { children: RN; title: string }) 
           })}
         </nav>
       </aside>
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="border-b bg-card px-6 py-4">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="shrink-0 border-b bg-card px-6 py-4">
           <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         </header>
-        <main className="flex-1 px-6 py-6 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-auto px-6 py-6">{children}</main>
       </div>
     </div>
   );
